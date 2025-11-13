@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bofa Takas Momentum Analizi</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+
+        /* Menü Sistemi */
+        .menu-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0;
+        }
+
+        .menu-tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            color: #6b7280;
+            transition: all 0.3s;
+            position: relative;
+            top: 2px;
+        }
+
+        .menu-tab:hover {
+            color: #2563eb;
+            background: #f3f4f6;
+        }
+
+        .menu-tab.active {
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+            background: transparent;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.85em;
+        }
+
+        input, select, button {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        /* Arama yapılabilen select */
+        .searchable-select {
+            position: relative;
+        }
+
+        .searchable-select-input {
+            width: 100%;
+            padding: 10px 15px;
+            padding-right: 35px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        .searchable-select-input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .searchable-select-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .searchable-select-dropdown.show {
+            display: block;
+        }
+
+        .searchable-select-option {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .searchable-select-option:hover {
+            background: #f3f4f6;
+        }
+
+        .searchable-select-option.selected {
+            background: #dbeafe;
+            color: #2563eb;
+            font-weight: 600;
+        }
+
+        .searchable-select-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: #6b7280;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 6px;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        button.btn-secondary {
+            background: #059669;
+        }
+
+        button.btn-secondary:hover {
+            background: #047857;
+        }
+
+        button.btn-tertiary {
+            background: #dc2626;
+        }
+
+        button.btn-tertiary:hover {
+            background: #b91c1c;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 500px;
+            margin-bottom: 30px;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .info-panel {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .info-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .info-card h3 {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-card .value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .stock-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .stock-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .stock-item:hover {
+            background: #f5f5f5;
+        }
+
+        .stock-item.selected {
+            background: #e0e7ff;
+            font-weight: 600;
+        }
+
+        .trend-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .trend-yukselis {
+            background: #10b981;
+            color: white;
+        }
+
+        .trend-dusus {
+            background: #ef4444;
+            color: white;
+        }
+
+        .trend-degismeyen {
+            background: #6b7280;
+            color: white;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .info-panel {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .grid-layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .info-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .control-group {
+                width: 100%;
+                max-width: 100% !important;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 Bofa Analiz Paneli</h1>
+        <p class="subtitle">Borsa İstanbul - Aracı Kurum Pozisyon Değişim Analizi</p>
+
+        <div class="menu-tabs">
+            <button class="menu-tab active" onclick="switchMode('takas')" id="tabTakas">TAKAS</button>
+            <button class="menu-tab" onclick="switchMode('akd')" id="tabAkd">AKD</button>
+        </div>
+
+        <div id="loading" class="loading">Veriler yükleniyor...</div>
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="main-content" style="display: none;">
+            <!-- TAKAS içeriği -->
+            <div id="takas-content">
+            <div class="controls">
+                <div class="control-group" style="flex: 1; max-width: 300px;">
+                    <label>Hisse Seç:</label>
+                    <div class="searchable-select">
+                        <input type="text" 
+                               id="stockSelectInput" 
+                               class="searchable-select-input" 
+                               placeholder="Hisse ara veya seç..."
+                               autocomplete="off"
+                               onfocus="showStockDropdown()"
+                               oninput="filterStocks(this.value)">
+                        <span class="searchable-select-icon">🔍</span>
+                        <div id="stockDropdown" class="searchable-select-dropdown"></div>
+                    </div>
+                </div>
+                <div class="control-group" style="max-width: 150px;">
+                    <label>Geriye Bakış (Gün):</label>
+                    <input type="number" id="lookBackDays" value="20" min="5" max="100">
+                </div>
+                <button onclick="loadStockData()" style="align-self: flex-end;">Grafiği Göster</button>
+                <button onclick="loadTopMomentum()" class="btn-secondary" style="align-self: flex-end;">Top Momentum</button>
+                <button onclick="reloadData()" class="btn-tertiary" style="align-self: flex-end;">Veriyi Yenile</button>
+            </div>
+
+            <div class="grid-layout">
+                <div>
+                    <h3>Top Momentum Hisseleri</h3>
+                    <div id="topStocksList" class="stock-list"></div>
+                </div>
+                <div>
+                    <div class="info-panel">
+                        <div class="info-card">
+                            <h3>Mevcut Pozisyon</h3>
+                            <div class="value" id="currentPosition">-</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Başlangıç Pozisyonu</h3>
+                            <div class="value" id="startPosition">-</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Değişim</h3>
+                            <div class="value" id="change">-</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Trend</h3>
+                            <div class="value" id="trend" style="font-size: 1.2em;">-</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="momentumChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- AKD içeriği -->
+            <div id="akd-content" style="display: none;">
+            <div class="controls">
+                <div class="control-group" style="flex: 1; max-width: 300px;">
+                    <label>Hisse Seç:</label>
+                    <div class="searchable-select">
+                        <input type="text" 
+                               id="akdStockSelectInput" 
+                               class="searchable-select-input" 
+                               placeholder="Hisse ara veya seç..."
+                               autocomplete="off"
+                               onfocus="showAkdStockDropdown()"
+                               oninput="filterAkdStocks(this.value)">
+                        <span class="searchable-select-icon">🔍</span>
+                        <div id="akdStockDropdown" class="searchable-select-dropdown"></div>
+                    </div>
+                </div>
+                <button onclick="loadAkdStockData()" style="align-self: flex-end;">Grafiği Göster</button>
+                <button onclick="loadTopAkdSales()" class="btn-secondary" style="align-self: flex-end;">Top Satışlar</button>
+            </div>
+
+            <div class="grid-layout">
+                <div>
+                    <h3>En Çok Satış Yapılan Hisseler</h3>
+                    <div id="topAkdSalesList" class="stock-list"></div>
+                </div>
+                <div>
+                    <div class="info-panel">
+                        <div class="info-card">
+                            <h3>Son Net Değer</h3>
+                            <div class="value" id="akdNet">-</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Satış Miktarı</h3>
+                            <div class="value" id="akdSatisMiktar">-</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Alış Miktarı</h3>
+                            <div class="value" id="akdAlisMiktar">-</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Maliyet</h3>
+                            <div class="value" id="akdMaliyet">-</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="akdChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let akdChart = null;
+        let allStocks = [];
+        let allAkdStocks = [];
+        let currentStock = null;
+        let currentMode = 'takas';
+
+        // Sayfa yüklendiğinde
+        window.onload = async () => {
+            await loadStocks();
+            await loadTopMomentum();
+            await loadAkdStocks();
+            await loadTopAkdSales();
+        };
+
+        // Mod değiştir (TAKAS/AKD)
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // Menü tab'larını güncelle
+            document.getElementById('tabTakas').classList.toggle('active', mode === 'takas');
+            document.getElementById('tabAkd').classList.toggle('active', mode === 'akd');
+            
+            // İçerikleri göster/gizle
+            document.getElementById('takas-content').style.display = mode === 'takas' ? 'block' : 'none';
+            document.getElementById('akd-content').style.display = mode === 'akd' ? 'block' : 'none';
+        }
+
+        // Hisse listesini yükle
+        async function loadStocks() {
+            try {
+                const response = await fetch('/api/stocks');
+                const data = await response.json();
+                allStocks = data.stocks;
+                
+                renderStockDropdown(allStocks);
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+            } catch (error) {
+                showError('Stok listesi yüklenirken hata: ' + error.message);
+            }
+        }
+
+        // Hisse dropdown'unu render et
+        function renderStockDropdown(stocks, filter = '') {
+            const dropdown = document.getElementById('stockDropdown');
+            const filterLower = filter.toLowerCase();
+            const filtered = stocks.filter(s => s.toLowerCase().includes(filterLower));
+            
+            dropdown.innerHTML = '';
+            
+            if (filtered.length === 0) {
+                dropdown.innerHTML = '<div class="searchable-select-option">Hisse bulunamadı</div>';
+                dropdown.classList.add('show');
+                return;
+            }
+
+            filtered.slice(0, 50).forEach(stock => {
+                const option = document.createElement('div');
+                option.className = 'searchable-select-option';
+                option.textContent = stock;
+                option.onclick = () => {
+                    document.getElementById('stockSelectInput').value = stock;
+                    dropdown.classList.remove('show');
+                    loadStockData(stock);
+                };
+                dropdown.appendChild(option);
+            });
+        }
+
+        // Dropdown'u göster
+        function showStockDropdown() {
+            const input = document.getElementById('stockSelectInput');
+            const dropdown = document.getElementById('stockDropdown');
+            if (input.value === '') {
+                renderStockDropdown(allStocks);
+            }
+            dropdown.classList.add('show');
+        }
+
+        // Hisse filtrele
+        function filterStocks(query) {
+            renderStockDropdown(allStocks, query);
+            document.getElementById('stockDropdown').classList.add('show');
+        }
+
+        // Dışarı tıklandığında dropdown'u kapat
+        document.addEventListener('click', (e) => {
+            const select = document.querySelector('.searchable-select');
+            if (!select.contains(e.target)) {
+                document.getElementById('stockDropdown').classList.remove('show');
+            }
+        });
+
+        // Top momentum hisselerini yükle
+        async function loadTopMomentum() {
+            try {
+                const lookBackDays = parseInt(document.getElementById('lookBackDays').value) || 20;
+                const response = await fetch(`/api/top-momentum?days=${lookBackDays}&limit=30`);
+                const data = await response.json();
+                
+                const listDiv = document.getElementById('topStocksList');
+                listDiv.innerHTML = '';
+
+                if (data.topStocks.length === 0) {
+                    listDiv.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">Momentum hissesi bulunamadı</p>';
+                    return;
+                }
+
+                data.topStocks.forEach(stock => {
+                    const item = document.createElement('div');
+                    item.className = 'stock-item';
+                    item.onclick = () => {
+                        document.getElementById('stockSelectInput').value = stock.senet;
+                        loadStockData(stock.senet);
+                    };
+                    
+                    const changeText = stock.change > 0 ? `+${stock.change}` : stock.change;
+                    const trendClass = stock.isImproving ? 'trend-yukselis' : 'trend-dusus';
+                    
+                    item.innerHTML = `
+                        <strong>${stock.senet}</strong>
+                        <span class="trend-badge ${trendClass}">${changeText} pozisyon</span>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            ${stock.startPozisyon} → ${stock.endPozisyon}
+                        </div>
+                    `;
+                    
+                    listDiv.appendChild(item);
+                });
+            } catch (error) {
+                showError('Top momentum yüklenirken hata: ' + error.message);
+            }
+        }
+
+        // Hisse verisini yükle ve grafik çiz
+        async function loadStockData(senet = null) {
+            const selectedStock = senet || document.getElementById('stockSelectInput').value.trim();
+            if (!selectedStock) {
+                showError('Lütfen bir hisse seçin');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/stock/${selectedStock}`);
+                const data = await response.json();
+
+                if (!data.momentum || data.momentum.length === 0) {
+                    showError('Bu hisse için veri bulunamadı');
+                    return;
+                }
+
+                currentStock = data;
+                updateInfoPanel(data.analysis);
+                drawChart(data.momentum, selectedStock);
+
+                // Top momentum listesinde seçili yap
+                document.querySelectorAll('.stock-item').forEach(item => {
+                    item.classList.remove('selected');
+                    if (item.textContent.includes(selectedStock)) {
+                        item.classList.add('selected');
+                    }
+                });
+
+                hideError();
+            } catch (error) {
+                showError('Hisse verisi yüklenirken hata: ' + error.message);
+            }
+        }
+
+        // Bilgi panelini güncelle
+        function updateInfoPanel(analysis) {
+            document.getElementById('currentPosition').textContent = analysis.endPozisyon || '-';
+            document.getElementById('startPosition').textContent = analysis.startPozisyon || '-';
+            
+            const changeEl = document.getElementById('change');
+            const change = analysis.change || 0;
+            changeEl.textContent = change > 0 ? `+${change}` : change;
+            changeEl.style.color = change > 0 ? '#10b981' : change < 0 ? '#ef4444' : '#6b7280';
+            
+            const trendEl = document.getElementById('trend');
+            const trendMap = {
+                'güçlü_yükseliş': '🚀 Güçlü Yükseliş',
+                'yükseliş': '📈 Yükseliş',
+                'değişmeyen': '➡️ Değişmeyen',
+                'düşüş': '📉 Düşüş',
+                'güçlü_düşüş': '⬇️ Güçlü Düşüş',
+                'yetersiz_veri': '❓ Yetersiz Veri'
+            };
+            trendEl.textContent = trendMap[analysis.trend] || analysis.trend;
+        }
+
+        // Grafik çiz
+        function drawChart(momentumData, stockName) {
+            const ctx = document.getElementById('momentumChart').getContext('2d');
+
+            // Eski grafiği yok et
+            if (chart) {
+                chart.destroy();
+            }
+
+            const dates = momentumData.map(d => d.date);
+            const positions = momentumData.map(d => d.pozisyon);
+            const lots = momentumData.map(d => d.lot);
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Pozisyon (düşük = iyi)',
+                            data: positions,
+                            borderColor: 'rgb(102, 126, 234)',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y',
+                            borderWidth: 3,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            pointHitRadius: 10
+                        },
+                        {
+                            label: 'Lot (x1000)',
+                            data: lots.map(l => l / 1000),
+                            borderColor: 'rgb(118, 75, 162)',
+                            backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y1',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            pointHitRadius: 10,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${stockName} - Pozisyon Momentum Grafiği`,
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            padding: 15
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.datasetIndex === 0) {
+                                        return `Pozisyon: ${context.parsed.y}`;
+                                    } else {
+                                        return `Lot: ${context.parsed.y.toFixed(1)}K`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            reverse: true, // Pozisyon grafiğini ters çevir (en üst en çok tutulan)
+                            title: {
+                                display: true,
+                                text: 'Pozisyon (1 = En Çok Tutulan)',
+                                font: { weight: 'bold' }
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Lot (Bin)',
+                                font: { weight: 'bold' }
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Tarih',
+                                font: { weight: 'bold' }
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        // Veriyi yenile
+        async function reloadData() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                await fetch('/api/reload', { method: 'POST' });
+                await new Promise(resolve => setTimeout(resolve, 2000)); // 2 saniye bekle
+                await loadStocks();
+                await loadTopMomentum();
+                if (currentStock) {
+                    await loadStockData(currentStock.senet);
+                }
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                showError('Veri yenilenirken hata: ' + error.message);
+            }
+        }
+
+        // Hata göster
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Hatayı gizle
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        // Look back days değiştiğinde top momentum'u yenile
+        document.getElementById('lookBackDays').addEventListener('change', loadTopMomentum);
+
+        // ============ AKD FONKSİYONLARI ============
+
+        // AKD hisse listesini yükle
+        async function loadAkdStocks() {
+            try {
+                const response = await fetch('/api/akd/stocks');
+                const data = await response.json();
+                allAkdStocks = data.stocks;
+                renderAkdStockDropdown(allAkdStocks);
+            } catch (error) {
+                console.error('AKD stok listesi yüklenirken hata:', error);
+            }
+        }
+
+        // AKD hisse dropdown'unu render et
+        function renderAkdStockDropdown(stocks, filter = '') {
+            const dropdown = document.getElementById('akdStockDropdown');
+            const filterLower = filter.toLowerCase();
+            const filtered = stocks.filter(s => s.toLowerCase().includes(filterLower));
+            
+            dropdown.innerHTML = '';
+            
+            if (filtered.length === 0) {
+                dropdown.innerHTML = '<div class="searchable-select-option">Hisse bulunamadı</div>';
+                dropdown.classList.add('show');
+                return;
+            }
+
+            filtered.slice(0, 50).forEach(stock => {
+                const option = document.createElement('div');
+                option.className = 'searchable-select-option';
+                option.textContent = stock;
+                option.onclick = () => {
+                    document.getElementById('akdStockSelectInput').value = stock;
+                    dropdown.classList.remove('show');
+                    loadAkdStockData(stock);
+                };
+                dropdown.appendChild(option);
+            });
+        }
+
+        // AKD dropdown'u göster
+        function showAkdStockDropdown() {
+            const input = document.getElementById('akdStockSelectInput');
+            const dropdown = document.getElementById('akdStockDropdown');
+            if (input.value === '') {
+                renderAkdStockDropdown(allAkdStocks);
+            }
+            dropdown.classList.add('show');
+        }
+
+        // AKD hisse filtrele
+        function filterAkdStocks(query) {
+            renderAkdStockDropdown(allAkdStocks, query);
+            document.getElementById('akdStockDropdown').classList.add('show');
+        }
+
+        // AKD dışarı tıklandığında dropdown'u kapat
+        document.addEventListener('click', (e) => {
+            const akdSelect = document.querySelector('#akd-content .searchable-select');
+            if (akdSelect && !akdSelect.contains(e.target)) {
+                document.getElementById('akdStockDropdown').classList.remove('show');
+            }
+        });
+
+        // Top AKD satışlarını yükle
+        async function loadTopAkdSales() {
+            try {
+                const response = await fetch('/api/akd/top-sales?limit=30');
+                const data = await response.json();
+                
+                const listDiv = document.getElementById('topAkdSalesList');
+                listDiv.innerHTML = '';
+
+                if (data.topStocks.length === 0) {
+                    listDiv.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">Satış verisi bulunamadı</p>';
+                    return;
+                }
+
+                data.topStocks.forEach(stock => {
+                    const item = document.createElement('div');
+                    item.className = 'stock-item';
+                    item.onclick = () => {
+                        document.getElementById('akdStockSelectInput').value = stock.senet;
+                        loadAkdStockData(stock.senet);
+                    };
+                    
+                    const netColor = stock.net >= 0 ? 'trend-yukselis' : 'trend-dusus';
+                    const netText = stock.net >= 0 ? `+${(stock.net / 1000000).toFixed(1)}M` : `${(stock.net / 1000000).toFixed(1)}M`;
+                    
+                    item.innerHTML = `
+                        <strong>${stock.senet}</strong>
+                        <span class="trend-badge ${netColor}">Net: ${netText}</span>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            Satış: ${(stock.satisMiktar / 1000000).toFixed(1)}M
+                        </div>
+                    `;
+                    
+                    listDiv.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Top AKD satışlar yüklenirken hata:', error);
+            }
+        }
+
+        // AKD hisse verisini yükle ve grafik çiz
+        async function loadAkdStockData(senet = null) {
+            const selectedStock = senet || document.getElementById('akdStockSelectInput').value.trim();
+            if (!selectedStock) {
+                showError('Lütfen bir hisse seçin');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/akd/stock/${selectedStock}`);
+                const data = await response.json();
+
+                if (!data.data || data.data.length === 0) {
+                    showError('Bu hisse için veri bulunamadı');
+                    return;
+                }
+
+                updateAkdInfoPanel(data.data[data.data.length - 1]);
+                drawAkdChart(data.data, selectedStock);
+
+                hideError();
+            } catch (error) {
+                showError('AKD hisse verisi yüklenirken hata: ' + error.message);
+            }
+        }
+
+        // AKD bilgi panelini güncelle
+        function updateAkdInfoPanel(lastData) {
+            document.getElementById('akdNet').textContent = (lastData.net / 1000000).toFixed(2) + 'M';
+            document.getElementById('akdNet').style.color = lastData.net >= 0 ? '#10b981' : '#ef4444';
+            
+            document.getElementById('akdSatisMiktar').textContent = (lastData.satisMiktar / 1000000).toFixed(2) + 'M';
+            document.getElementById('akdAlisMiktar').textContent = (lastData.alisMiktar / 1000000).toFixed(2) + 'M';
+            document.getElementById('akdMaliyet').textContent = lastData.maliyet.toFixed(3) + ' ₺';
+        }
+
+        // AKD grafik çiz (Bar + Line)
+        function drawAkdChart(stockData, stockName) {
+            const ctx = document.getElementById('akdChart').getContext('2d');
+
+            // Eski grafiği yok et
+            if (akdChart) {
+                akdChart.destroy();
+            }
+
+            const dates = stockData.map(d => d.date);
+            const nets = stockData.map(d => d.net / 1000000); // Milyon cinsinden (bar için)
+            const satisMiktarlar = stockData.map(d => d.satisMiktar / 1000000); // Tooltip için
+            const fiyatlar = stockData.map(d => d.fiyat); // TAKAS fiyat bilgisi
+
+            // Bar renklerini belirle (Net pozitifse yeşil, negatifse kırmızı)
+            const barColors = nets.map(net => net >= 0 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)');
+            const barBorderColors = nets.map(net => net >= 0 ? 'rgb(16, 185, 129)' : 'rgb(239, 68, 68)');
+
+            // Net değerleri için min/max hesapla (0 etrafında simetrik olması için)
+            const maxNet = Math.max(...nets.map(Math.abs));
+            const yAxisMin = -maxNet * 1.1; // %10 padding
+            const yAxisMax = maxNet * 1.1;
+
+            // Fiyat için min/max hesapla
+            const validFiyatlar = fiyatlar.filter(p => p !== null && p !== undefined && !isNaN(p));
+            let priceMin = 0;
+            let priceMax = 100;
+            
+            if (validFiyatlar.length > 0) {
+                const minFiyat = Math.min(...validFiyatlar);
+                const maxFiyat = Math.max(...validFiyatlar);
+                priceMin = Math.max(0, minFiyat * 0.95); // En az 0, %5 padding
+                priceMax = maxFiyat * 1.05; // %5 padding
+            }
+
+            akdChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Net Değer (Milyon)',
+                            data: nets, // Net değerlerini göster (pozitif yukarı, negatif aşağı)
+                            backgroundColor: barColors,
+                            borderColor: barBorderColors,
+                            borderWidth: 2,
+                            yAxisID: 'y',
+                            order: 2
+                        },
+                        {
+                            label: 'Fiyat (₺) - TAKAS',
+                            data: fiyatlar,
+                            type: 'line',
+                            borderColor: 'rgb(34, 197, 94)',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y1',
+                            borderWidth: 3,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            pointHitRadius: 10,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${stockName} - Net Değer ve Fiyat Grafiği`,
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            padding: 15
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.datasetIndex === 0) {
+                                        const net = nets[context.dataIndex];
+                                        const satis = satisMiktarlar[context.dataIndex];
+                                        const netText = net >= 0 ? `+${net.toFixed(2)}M` : `${net.toFixed(2)}M`;
+                                        return `Net: ${netText} | Satış: ${satis.toFixed(2)}M`;
+                                    } else if (context.datasetIndex === 1) {
+                                        const fiyat = fiyatlar[context.dataIndex];
+                                        return fiyat !== null && fiyat !== undefined && !isNaN(fiyat) ? `Fiyat: ${context.parsed.y.toFixed(3)} ₺` : 'Fiyat: Veri yok';
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Net Değer (Milyon)',
+                                font: { weight: 'bold' }
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)',
+                                drawBorder: true,
+                                lineWidth: function(context) {
+                                    // 0 çizgisini kalın göster
+                                    if (context.tick.value === 0) {
+                                        return 2;
+                                    }
+                                    return 1;
+                                }
+                            },
+                            min: yAxisMin,
+                            max: yAxisMax,
+                            ticks: {
+                                callback: function(value) {
+                                    return value >= 0 ? `+${value.toFixed(1)}M` : `${value.toFixed(1)}M`;
+                                }
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Fiyat (₺)',
+                                font: { weight: 'bold' }
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                                color: 'rgba(34, 197, 94, 0.1)'
+                            },
+                            min: priceMin,
+                            max: priceMax
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Tarih',
+                                font: { weight: 'bold' }
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
