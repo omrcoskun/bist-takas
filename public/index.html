@@ -316,6 +316,63 @@
             gap: 20px;
         }
 
+        /* Tablo Stilleri */
+        #topHoldingsTable {
+            font-size: 0.9em;
+        }
+
+        #topHoldingsTable tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+            transition: background 0.2s;
+        }
+
+        #topHoldingsTable tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        #topHoldingsTable tbody td {
+            padding: 12px;
+        }
+
+        #topHoldingsTable tbody td:first-child {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        #topHoldingsTable tbody td:nth-child(2) {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .mini-chart-container {
+            width: 150px;
+            height: 40px;
+            margin: 0 auto;
+        }
+
+        .position-change {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .position-up {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .position-down {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .position-same {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
         @media (max-width: 1200px) {
             .info-panel {
                 grid-template-columns: repeat(2, 1fr);
@@ -414,6 +471,28 @@
                     <div class="chart-container">
                         <canvas id="momentumChart"></canvas>
                     </div>
+
+                    <div style="margin-top: 30px;">
+                        <h3 style="margin-bottom: 15px;">En Çok Tutulan İlk 20 Hisse</h3>
+                        <div style="overflow-x: auto;">
+                            <table id="topHoldingsTable" style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <thead>
+                                    <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                        <th style="padding: 12px; text-align: left; font-weight: 600;">Sıra</th>
+                                        <th style="padding: 12px; text-align: left; font-weight: 600;">Hisse</th>
+                                        <th style="padding: 12px; text-align: right; font-weight: 600;">Lot</th>
+                                        <th style="padding: 12px; text-align: right; font-weight: 600;">Fiyat (₺)</th>
+                                        <th style="padding: 12px; text-align: right; font-weight: 600;">Tutar (TL)</th>
+                                        <th style="padding: 12px; text-align: center; font-weight: 600;">Sıra Değişimi</th>
+                                        <th style="padding: 12px; text-align: center; font-weight: 600;">Günlük Sıra Trendi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="topHoldingsTableBody">
+                                    <!-- Tablo içeriği JavaScript ile doldurulacak -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
             </div>
@@ -485,6 +564,7 @@
         window.onload = async () => {
             await loadStocks();
             await loadTopMomentum();
+            await loadTopHoldingsTable();
             await loadAkdStocks();
             await loadTopAkdSales();
         };
@@ -676,6 +756,7 @@
                 chart.destroy();
             }
 
+            // Verileri normal sıralı tut (en eski solda, en yeni sağda)
             const dates = momentumData.map(d => d.date);
             const positions = momentumData.map(d => d.pozisyon);
             const lots = momentumData.map(d => d.lot);
@@ -800,6 +881,7 @@
                 await new Promise(resolve => setTimeout(resolve, 2000)); // 2 saniye bekle
                 await loadStocks();
                 await loadTopMomentum();
+                await loadTopHoldingsTable();
                 if (currentStock) {
                     await loadStockData(currentStock.senet);
                 }
@@ -823,6 +905,196 @@
 
         // Look back days değiştiğinde top momentum'u yenile
         document.getElementById('lookBackDays').addEventListener('change', loadTopMomentum);
+
+        // Top holdings tablosunu yükle
+        async function loadTopHoldingsTable() {
+            try {
+                const response = await fetch('/api/top-holdings?limit=20');
+                const data = await response.json();
+                
+                if (!data.holdings || data.holdings.length === 0) {
+                    return;
+                }
+
+                const tbody = document.getElementById('topHoldingsTableBody');
+                tbody.innerHTML = '';
+
+                // Her hisse için momentum verisini al
+                for (const holding of data.holdings) {
+                    try {
+                        const momentumResponse = await fetch(`/api/stock/${holding.senet}`);
+                        const momentumData = await momentumResponse.json();
+                        let momentum = momentumData.momentum || [];
+                        
+                        // Momentum verisini tarihe göre sırala (en eski → en yeni)
+                        momentum = momentum.sort((a, b) => {
+                            const dateA = new Date(a.date);
+                            const dateB = new Date(b.date);
+                            return dateA - dateB;
+                        });
+                        
+                        const row = createTableRow(holding, momentum);
+                        tbody.appendChild(row);
+                        
+                        // Mini grafik çizmek için biraz bekle
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    } catch (error) {
+                        console.error(`Momentum verisi alınamadı: ${holding.senet}`, error);
+                        // Momentum verisi yoksa sadece holding bilgilerini göster
+                        const row = createTableRow(holding, []);
+                        tbody.appendChild(row);
+                    }
+                }
+            } catch (error) {
+                console.error('Top holdings tablosu yüklenirken hata:', error);
+            }
+        }
+
+        // Tablo satırı oluştur
+        function createTableRow(holding, momentum) {
+            const row = document.createElement('tr');
+            
+            // Sıra değişimi hesapla
+            let positionChange = '-';
+            let positionChangeClass = 'position-same';
+            let startPosition = '-';
+            let endPosition = holding.pozisyon;
+
+            if (momentum.length >= 2) {
+                startPosition = momentum[0].pozisyon;
+                endPosition = momentum[momentum.length - 1].pozisyon;
+                const change = startPosition - endPosition;
+                
+                if (change > 0) {
+                    positionChange = `+${change}`;
+                    positionChangeClass = 'position-up';
+                } else if (change < 0) {
+                    positionChange = `${change}`;
+                    positionChangeClass = 'position-down';
+                } else {
+                    positionChange = '0';
+                    positionChangeClass = 'position-same';
+                }
+            }
+
+            // Mini grafik için canvas ID
+            const positionChartId = `posChart_${holding.senet}_${Date.now()}_${Math.random()}`;
+            const positions = momentum.map(m => m.pozisyon);
+
+            row.innerHTML = `
+                <td>${holding.pozisyon}</td>
+                <td style="font-weight: 600; cursor: pointer;" onclick="document.getElementById('stockSelectInput').value='${holding.senet}'; loadStockData('${holding.senet}');">${holding.senet}</td>
+                <td style="text-align: right;">${(holding.lot / 1000).toFixed(1)}K</td>
+                <td style="text-align: right;">${holding.fiyat.toFixed(2)}</td>
+                <td style="text-align: right;">${(holding.tl / 1000000).toFixed(2)}M</td>
+                <td style="text-align: center;">
+                    <span class="position-change ${positionChangeClass}">
+                        ${startPosition} → ${endPosition} (${positionChange})
+                    </span>
+                </td>
+                <td>
+                    <div class="mini-chart-container">
+                        <canvas id="${positionChartId}"></canvas>
+                    </div>
+                </td>
+            `;
+
+            // İlk mini grafik - günlük sıra trendi (normalize edilmiş)
+            if (positions.length > 0) {
+                setTimeout(() => {
+                    drawMiniChart(positionChartId, positions, '#667eea', '#10b981');
+                }, 200);
+            } else {
+                // Veri yoksa placeholder göster
+                const canvas = document.getElementById(positionChartId);
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 150;
+                    canvas.height = 40;
+                    ctx.fillStyle = '#e5e7eb';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Veri yok', 75, 20);
+                }
+            }
+
+
+            return row;
+        }
+
+        // Mini grafik çiz - gün gün pozisyonları göster
+        function drawMiniChart(canvasId, positions, lineColor = '#667eea', startColor = '#10b981') {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                console.warn(`Canvas bulunamadı: ${canvasId}`);
+                return;
+            }
+            
+            if (!positions || positions.length === 0) {
+                console.warn(`Pozisyon verisi yok: ${canvasId}`);
+                return;
+            }
+
+            // Pozisyonları ters sıralı yap (en yeni sağda)
+            const reversedPositions = [...positions].reverse();
+
+            const ctx = canvas.getContext('2d');
+            const width = 150;
+            const height = 40;
+            canvas.width = width;
+            canvas.height = height;
+
+            // Pozisyonları normalize et (ters çevir - düşük pozisyon = yukarı)
+            const maxPos = Math.max(...reversedPositions);
+            const minPos = Math.min(...reversedPositions);
+            const range = maxPos - minPos || 1;
+            
+            // Padding ekle
+            const padding = 5;
+            const chartHeight = height - (padding * 2);
+            
+            const normalized = reversedPositions.map(p => {
+                if (range === 0) return height / 2;
+                return padding + chartHeight - ((p - minPos) / range) * chartHeight;
+            });
+
+            // Arka plan temizle
+            ctx.clearRect(0, 0, width, height);
+
+            // Çizgi çiz
+            ctx.strokeStyle = lineColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            const stepX = reversedPositions.length > 1 ? width / (reversedPositions.length - 1) : 0;
+            
+            normalized.forEach((y, i) => {
+                const x = i * stepX;
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            
+            ctx.stroke();
+
+            // İlk ve son noktaları işaretle (ters sıralı olduğu için ilk = en eski, son = en yeni)
+            if (normalized.length > 0) {
+                // İlk nokta (en eski - yeşil) - sol tarafta
+                ctx.fillStyle = startColor;
+                ctx.beginPath();
+                ctx.arc(0, normalized[0], 3, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Son nokta (en yeni - mavi) - sağ tarafta
+                ctx.fillStyle = lineColor;
+                ctx.beginPath();
+                const lastX = (normalized.length - 1) * stepX;
+                ctx.arc(lastX, normalized[normalized.length - 1], 3, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
 
         // ============ AKD FONKSİYONLARI ============
 

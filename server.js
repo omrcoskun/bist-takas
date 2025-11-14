@@ -145,6 +145,33 @@ app.get('/api/stocks', (req, res) => {
   });
 });
 
+// En çok tutulan ilk N hisse (son gün)
+app.get('/api/top-holdings', (req, res) => {
+  if (!allData) {
+    return res.status(503).json({ error: 'Veri henüz yüklenmedi' });
+  }
+
+  const limit = parseInt(req.query.limit) || 20;
+  const lastDay = allData[allData.length - 1];
+  
+  if (!lastDay) {
+    return res.status(404).json({ error: 'Veri bulunamadı' });
+  }
+
+  const topHoldings = lastDay.holdings.slice(0, limit).map(h => ({
+    senet: h.senet,
+    lot: h.lot,
+    fiyat: h.fiyat,
+    tl: h.tl,
+    pozisyon: h.pozisyon
+  }));
+
+  res.json({
+    date: lastDay.date,
+    holdings: topHoldings
+  });
+});
+
 // Veriyi yeniden yükle
 app.post('/api/reload', (req, res) => {
   loadData();
