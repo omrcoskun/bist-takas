@@ -350,6 +350,14 @@
             margin: 0 auto;
         }
 
+        .chartjs-rank-mini-container {
+            width: 220px;
+            height: 75px;
+            margin: 0 auto;
+            position: relative;
+            padding: 2px;
+        }
+
         .position-change {
             display: inline-block;
             padding: 4px 8px;
@@ -472,6 +480,10 @@
                         <canvas id="momentumChart"></canvas>
                     </div>
 
+                    <div class="chart-container" style="margin-top: 20px;">
+                        <canvas id="rankChart"></canvas>
+                    </div>
+
                     <div style="margin-top: 30px;">
                         <h3 style="margin-bottom: 15px;">En Çok Tutulan İlk 20 Hisse</h3>
                         <div style="overflow-x: auto;">
@@ -485,6 +497,7 @@
                                         <th style="padding: 12px; text-align: right; font-weight: 600;">Tutar (TL)</th>
                                         <th style="padding: 12px; text-align: center; font-weight: 600;">Sıra Değişimi</th>
                                         <th style="padding: 12px; text-align: center; font-weight: 600;">Günlük Sıra Trendi</th>
+                                        <th style="padding: 12px; text-align: center; font-weight: 600;">Pozisyon Büyüklüğü</th>
                                     </tr>
                                 </thead>
                                 <tbody id="topHoldingsTableBody">
@@ -554,6 +567,7 @@
 
     <script>
         let chart = null;
+        let rankChart = null;
         let akdChart = null;
         let allStocks = [];
         let allAkdStocks = [];
@@ -759,7 +773,6 @@
             // Verileri normal sıralı tut (en eski solda, en yeni sağda)
             const dates = momentumData.map(d => d.date);
             const positions = momentumData.map(d => d.pozisyon);
-            const lots = momentumData.map(d => d.lot);
 
             chart = new Chart(ctx, {
                 type: 'line',
@@ -777,19 +790,6 @@
                             pointRadius: 0,
                             pointHoverRadius: 0,
                             pointHitRadius: 10
-                        },
-                        {
-                            label: 'Lot (x1000)',
-                            data: lots.map(l => l / 1000),
-                            borderColor: 'rgb(118, 75, 162)',
-                            backgroundColor: 'rgba(118, 75, 162, 0.1)',
-                            tension: 0.4,
-                            yAxisID: 'y1',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            pointHoverRadius: 0,
-                            pointHitRadius: 10,
-                            borderDash: [5, 5]
                         }
                     ]
                 },
@@ -816,11 +816,7 @@
                             intersect: false,
                             callbacks: {
                                 label: function(context) {
-                                    if (context.datasetIndex === 0) {
-                                        return `Pozisyon: ${context.parsed.y}`;
-                                    } else {
-                                        return `Lot: ${context.parsed.y.toFixed(1)}K`;
-                                    }
+                                    return `Pozisyon: ${context.parsed.y}`;
                                 }
                             }
                         }
@@ -840,19 +836,6 @@
                                 color: 'rgba(0,0,0,0.1)'
                             }
                         },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Lot (Bin)',
-                                font: { weight: 'bold' }
-                            },
-                            grid: {
-                                drawOnChartArea: false
-                            }
-                        },
                         x: {
                             title: {
                                 display: true,
@@ -868,6 +851,199 @@
                         mode: 'nearest',
                         axis: 'x',
                         intersect: false
+                    }
+                }
+            });
+
+            // İkinci grafik: Tutar (Lot x Fiyat) Zaman Serisi - Pozisyon Büyüklüğü
+            drawTutarChart(momentumData, stockName);
+        }
+
+        // Tutar (Pozisyon Büyüklüğü) Grafiği Çiz
+        function drawTutarChart(momentumData, stockName) {
+            const ctx = document.getElementById('rankChart').getContext('2d');
+
+            // Eski grafiği yok et
+            if (rankChart) {
+                rankChart.destroy();
+            }
+
+            // Verileri normal sıralı tut (en eski solda, en yeni sağda)
+            const dates = momentumData.map(d => d.date);
+            const tutarlar = momentumData.map(d => d.tl); // Tutar = Lot × Fiyat
+            const lots = momentumData.map(d => d.lot);
+            const fiyatlar = momentumData.map(d => d.fiyat);
+
+            // Tarihleri YYYY-MM-DD formatına çevir
+            const formattedDates = dates.map(date => {
+                const d = new Date(date);
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            });
+
+            // Tutarları milyon cinsinden hesapla
+            const tutarlarM = tutarlar.map(t => t / 1000000); // Milyon TL
+
+            // Y ekseni için min/max değerleri hesapla - dinamik ölçeklendirme
+            const minTutar = Math.min(...tutarlarM);
+            const maxTutar = Math.max(...tutarlarM);
+            const range = maxTutar - minTutar;
+            
+            // Padding ekle (min/max değerlerinin %10'u veya minimum değerin %5'i)
+            const padding = Math.max(range * 0.1, maxTutar * 0.05);
+            let yMin = Math.max(0, Math.floor((minTutar - padding) * 10) / 10);
+            let yMax = Math.ceil((maxTutar + padding) * 10) / 10;
+            
+            // Eğer min ve max aynıysa (sabit değer), bir aralık oluştur
+            if (range === 0) {
+                yMin = Math.max(0, minTutar - minTutar * 0.1);
+                yMax = minTutar + minTutar * 0.1;
+            }
+
+            // Grafik datasını console'a bas
+            console.log(`=== ${stockName} - Tutar Grafiği Datası ===`);
+            console.log('Tarihler:', formattedDates);
+            console.log('Tutarlar (TL):', tutarlar);
+            console.log('Tutarlar (Milyon):', tutarlarM);
+            console.log('Lot:', lots);
+            console.log('Fiyatlar:', fiyatlar);
+            console.log('Min Tutar (M):', minTutar);
+            console.log('Max Tutar (M):', maxTutar);
+            console.log('Y Ekseni Min:', yMin);
+            console.log('Y Ekseni Max:', yMax);
+            console.log('Veri Çiftleri:');
+            formattedDates.forEach((date, index) => {
+                console.log(`  ${date}: Tutar ${tutarlarM[index].toFixed(2)}M (Lot: ${(lots[index]/1000).toFixed(1)}K, Fiyat: ${fiyatlar[index].toFixed(2)}₺)`);
+            });
+            console.log('==========================================');
+
+            rankChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: formattedDates,
+                    datasets: [{
+                        label: 'Tutar (Milyon TL)',
+                        data: tutarlarM,
+                        borderColor: 'rgb(34, 197, 94)', // Yeşil
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointHitRadius: 10,
+                        tension: 0.4,
+                        fill: false,
+                        spanGaps: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Pozisyon Büyüklüğü (Tutar) Zaman Serisi',
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            padding: {
+                                top: 10,
+                                bottom: 20
+                            }
+                        },
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const tutar = tutarlarM[index];
+                                    const lot = lots[index];
+                                    const fiyat = fiyatlar[index];
+                                    return `Tutar: ${tutar.toFixed(2)}M TL | Lot: ${(lot/1000).toFixed(1)}K | Fiyat: ${fiyat.toFixed(2)}₺`;
+                                },
+                                title: function(context) {
+                                    return context[0].label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            reverse: false, // Y ekseni NORMAL (yüksek tutar = yukarı)
+                            min: yMin,
+                            max: yMax,
+                            title: {
+                                display: true,
+                                text: 'Tutar (Milyon TL)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                },
+                                padding: {
+                                    top: 0,
+                                    bottom: 10
+                                }
+                            },
+                            ticks: {
+                                maxTicksLimit: 8,
+                                callback: function(value) {
+                                    return value.toFixed(1) + 'M';
+                                },
+                                font: {
+                                    size: 11
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)',
+                                drawBorder: true,
+                                drawOnChartArea: true
+                            }
+                        },
+                        x: {
+                            type: 'category',
+                            display: true,
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Tarih',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                },
+                                padding: {
+                                    top: 10,
+                                    bottom: 0
+                                }
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45,
+                                autoSkip: true,
+                                maxTicksLimit: 12,
+                                font: {
+                                    size: 10
+                                },
+                                callback: function(value, index) {
+                                    return formattedDates[index];
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)',
+                                drawBorder: true,
+                                drawOnChartArea: true
+                            }
+                        }
                     }
                 }
             });
@@ -979,7 +1155,12 @@
 
             // Mini grafik için canvas ID
             const positionChartId = `posChart_${holding.senet}_${Date.now()}_${Math.random()}`;
+            const tutarChartId = `tutarChart_${holding.senet}_${Date.now()}_${Math.random()}`;
             const positions = momentum.map(m => m.pozisyon);
+            const dates = momentum.map(m => m.date);
+            const tutarlar = momentum.map(m => m.tl); // Tutar = Lot × Fiyat
+            const lots = momentum.map(m => m.lot);
+            const fiyatlar = momentum.map(m => m.fiyat);
 
             row.innerHTML = `
                 <td>${holding.pozisyon}</td>
@@ -997,13 +1178,21 @@
                         <canvas id="${positionChartId}"></canvas>
                     </div>
                 </td>
+                <td>
+                    <div class="chartjs-rank-mini-container">
+                        <canvas id="${tutarChartId}"></canvas>
+                    </div>
+                </td>
             `;
 
-            // İlk mini grafik - günlük sıra trendi (ana grafikle aynı mantık)
-            if (positions.length > 0) {
+            // İlk mini grafik - pozisyon trendi (pozisyon gösterir)
+            // İkinci mini grafik - tutar (lot × fiyat) grafiği
+            if (positions.length > 0 && tutarlar.length > 0) {
                 setTimeout(() => {
-                    // Ana grafikte pozisyon çizgisi mavi (rgb(102, 126, 234) = #667eea)
+                    // İlk mini grafik - pozisyon çizgisi mavi (rgb(102, 126, 234) = #667eea)
                     drawMiniChart(positionChartId, positions, '#667eea', '#667eea');
+                    // İkinci mini grafik - tutar (lot × fiyat) zaman serisi
+                    drawTutarMiniChart(tutarChartId, dates, tutarlar, lots, fiyatlar);
                 }, 200);
             } else {
                 // Veri yoksa placeholder göster
@@ -1102,6 +1291,150 @@
                 ctx.arc(lastX, normalized[normalized.length - 1], 3, 0, 2 * Math.PI);
                 ctx.fill();
             }
+        }
+
+        // Mini Chart.js ile tutar (lot × fiyat) grafiği çiz - tablo için
+        function drawTutarMiniChart(canvasId, dates, tutarlar, lots, fiyatlar) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                console.warn(`Canvas bulunamadı: ${canvasId}`);
+                return;
+            }
+            
+            if (!tutarlar || tutarlar.length === 0 || !dates || dates.length === 0) {
+                console.warn(`Grafik verisi yok: ${canvasId}`);
+                return;
+            }
+
+            // Tarihleri formatla (sadece gün.ay formatında göster)
+            const formattedDates = dates.map(date => {
+                const d = new Date(date);
+                return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+            });
+
+            // Tutarları milyon cinsinden hesapla
+            const tutarlarM = tutarlar.map(t => t / 1000000); // Milyon TL
+
+            // Y ekseni için min/max değerleri hesapla - dinamik ölçeklendirme
+            const minTutar = Math.min(...tutarlarM);
+            const maxTutar = Math.max(...tutarlarM);
+            const range = maxTutar - minTutar;
+            
+            // Padding ekle (min/max değerlerinin %10'u veya minimum değerin %5'i)
+            const padding = Math.max(range * 0.1, maxTutar * 0.05);
+            let yMin = Math.max(0, Math.floor((minTutar - padding) * 10) / 10);
+            let yMax = Math.ceil((maxTutar + padding) * 10) / 10;
+            
+            // Eğer min ve max aynıysa (sabit değer), bir aralık oluştur
+            if (range === 0) {
+                yMin = Math.max(0, minTutar - minTutar * 0.1);
+                yMax = minTutar + minTutar * 0.1;
+            }
+
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: formattedDates,
+                    datasets: [{
+                        label: 'Tutar (Milyon TL)',
+                        data: tutarlarM,
+                        borderColor: 'rgb(34, 197, 94)', // Yeşil
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        pointHitRadius: 8,
+                        tension: 0.4,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            top: 2,
+                            bottom: 2,
+                            left: 25,
+                            right: 2
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 8,
+                            titleFont: {
+                                size: 11
+                            },
+                            bodyFont: {
+                                size: 10
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const tutar = tutarlarM[index];
+                                    const lot = lots[index];
+                                    const fiyat = fiyatlar[index];
+                                    return `Tutar: ${tutar.toFixed(2)}M TL | Lot: ${(lot/1000).toFixed(1)}K | Fiyat: ${fiyat.toFixed(2)}₺`;
+                                },
+                                title: function(context) {
+                                    return context[0].label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            reverse: false, // Y ekseni NORMAL (yüksek tutar = yukarı)
+                            min: yMin,
+                            max: yMax,
+                            title: {
+                                display: false
+                            },
+                            ticks: {
+                                display: true,
+                                font: {
+                                    size: 8,
+                                    weight: 'normal'
+                                },
+                                color: '#6b7280',
+                                padding: 2,
+                                maxTicksLimit: 5,
+                                callback: function(value) {
+                                    // Milyon TL formatında göster
+                                    return value.toFixed(1) + 'M';
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        x: {
+                            display: false,
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                display: false
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
         }
 
         // ============ AKD FONKSİYONLARI ============
