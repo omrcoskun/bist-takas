@@ -999,10 +999,11 @@
                 </td>
             `;
 
-            // İlk mini grafik - günlük sıra trendi (normalize edilmiş)
+            // İlk mini grafik - günlük sıra trendi (ana grafikle aynı mantık)
             if (positions.length > 0) {
                 setTimeout(() => {
-                    drawMiniChart(positionChartId, positions, '#667eea', '#10b981');
+                    // Ana grafikte pozisyon çizgisi mavi (rgb(102, 126, 234) = #667eea)
+                    drawMiniChart(positionChartId, positions, '#667eea', '#667eea');
                 }, 200);
             } else {
                 // Veri yoksa placeholder göster
@@ -1035,27 +1036,34 @@
                 return;
             }
 
-            // Pozisyonları ters sıralı yap (en yeni sağda)
-            const reversedPositions = [...positions].reverse();
-
+            // Pozisyonları normal sırada kullan (en eski solda, en yeni sağda)
             const ctx = canvas.getContext('2d');
             const width = 150;
             const height = 40;
             canvas.width = width;
             canvas.height = height;
 
-            // Pozisyonları normalize et (ters çevir - düşük pozisyon = yukarı)
-            const maxPos = Math.max(...reversedPositions);
-            const minPos = Math.min(...reversedPositions);
+            // Pozisyonları normalize et (ANA GRAFİKLE AYNI MANTIK - reverse: true)
+            // Ana grafikte: reverse: true → düşük pozisyon (1) üstte, yüksek pozisyon (34) altta
+            const maxPos = Math.max(...positions);
+            const minPos = Math.min(...positions);
             const range = maxPos - minPos || 1;
             
             // Padding ekle
             const padding = 5;
             const chartHeight = height - (padding * 2);
             
-            const normalized = reversedPositions.map(p => {
+            // Ana grafikte reverse: true → Chart.js Y eksenini ters çevirir
+            // Görselde: pozisyon 1 (düşük) üstte, pozisyon 34 (yüksek) altta görünür
+            // Canvas'ta aynı görseli elde etmek için: düşük pozisyon → küçük y (üstte), yüksek pozisyon → büyük y (altta)
+            const normalized = positions.map(p => {
                 if (range === 0) return height / 2;
-                return padding + chartHeight - ((p - minPos) / range) * chartHeight;
+                // Normalize: minPos → 0, maxPos → 1
+                const normalizedValue = (p - minPos) / range;
+                // Canvas'ta y=0 üstte, y=height altta
+                // Düşük pozisyon (1) → küçük y (üstte) = padding
+                // Yüksek pozisyon (34) → büyük y (altta) = padding + chartHeight
+                return padding + (normalizedValue * chartHeight);
             });
 
             // Arka plan temizle
@@ -1066,7 +1074,7 @@
             ctx.lineWidth = 2;
             ctx.beginPath();
             
-            const stepX = reversedPositions.length > 1 ? width / (reversedPositions.length - 1) : 0;
+            const stepX = positions.length > 1 ? width / (positions.length - 1) : 0;
             
             normalized.forEach((y, i) => {
                 const x = i * stepX;
@@ -1079,7 +1087,7 @@
             
             ctx.stroke();
 
-            // İlk ve son noktaları işaretle (ters sıralı olduğu için ilk = en eski, son = en yeni)
+            // İlk ve son noktaları işaretle (normal sıralı: ilk = en eski, son = en yeni)
             if (normalized.length > 0) {
                 // İlk nokta (en eski - yeşil) - sol tarafta
                 ctx.fillStyle = startColor;
