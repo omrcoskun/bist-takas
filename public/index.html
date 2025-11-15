@@ -381,6 +381,41 @@
             color: #6b7280;
         }
 
+        .rank-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin: 2px;
+            min-width: 28px;
+            text-align: center;
+        }
+
+        .rank-tag-green {
+            background: #10b981;
+            color: white;
+        }
+
+        .rank-tag-red {
+            background: #ef4444;
+            color: white;
+        }
+
+        .rank-tag-gray {
+            background: #6b7280;
+            color: white;
+        }
+
+        .rank-tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: center;
+            align-items: center;
+            padding: 5px;
+        }
+
         @media (max-width: 1200px) {
             .info-panel {
                 grid-template-columns: repeat(2, 1fr);
@@ -1153,6 +1188,37 @@
                 }
             }
 
+            // Son 5 günün sıralarını tagler olarak hazırla
+            let rankTagsHtml = '';
+            if (momentum.length > 0) {
+                // Son 5 günü al (en yeni son olmalı, momentum zaten tarihe göre sıralı - en eski → en yeni)
+                const last5Days = momentum.slice(-5);
+                
+                last5Days.forEach((day, index) => {
+                    let tagClass = 'rank-tag-gray';
+                    
+                    // Önceki güne göre değişimi kontrol et
+                    if (index > 0) {
+                        const prevPosition = last5Days[index - 1].pozisyon;
+                        const currentPosition = day.pozisyon;
+                        
+                        if (currentPosition < prevPosition) {
+                            // Pozisyon iyileşti (sıra düştü) → Yeşil
+                            tagClass = 'rank-tag-green';
+                        } else if (currentPosition > prevPosition) {
+                            // Pozisyon kötüleşti (sıra yükseldi) → Kırmızı
+                            tagClass = 'rank-tag-red';
+                        }
+                        // Aynıysa zaten gray
+                    } else {
+                        // İlk gün için (öncesi yok) gray
+                        tagClass = 'rank-tag-gray';
+                    }
+                    
+                    rankTagsHtml += `<span class="rank-tag ${tagClass}" title="${day.date}">${day.pozisyon}</span>`;
+                });
+            }
+
             // Mini grafik için canvas ID
             const positionChartId = `posChart_${holding.senet}_${Date.now()}_${Math.random()}`;
             const tutarChartId = `tutarChart_${holding.senet}_${Date.now()}_${Math.random()}`;
@@ -1169,9 +1235,9 @@
                 <td style="text-align: right;">${holding.fiyat.toFixed(2)}</td>
                 <td style="text-align: right;">${(holding.tl / 1000000).toFixed(2)}M</td>
                 <td style="text-align: center;">
-                    <span class="position-change ${positionChangeClass}">
-                        ${startPosition} → ${endPosition} (${positionChange})
-                    </span>
+                    <div class="rank-tags-container">
+                        ${rankTagsHtml || '<span style="color: #999; font-size: 0.85em;">Veri yok</span>'}
+                    </div>
                 </td>
                 <td>
                     <div class="mini-chart-container">
