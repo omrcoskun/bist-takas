@@ -21,7 +21,8 @@ class ExcelReader {
     const month = parseInt(match[2]) - 1; // JS'de ay 0-11
     const year = parseInt(match[3]);
     
-    return new Date(year, month, day);
+    // Timezone sorununu önlemek için UTC kullan
+    return new Date(Date.UTC(year, month, day));
   }
 
   /**
@@ -78,8 +79,14 @@ class ExcelReader {
           pozisyon: index + 1 // Sıralama pozisyonu (1 = en çok tutulan)
         }));
 
+      // Tarihi doğrudan string formatında oluştur (timezone sorununu önlemek için)
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      
       return {
-        date: date.toISOString().split('T')[0], // YYYY-MM-DD formatı
+        date: dateStr, // YYYY-MM-DD formatı
         holdings: holdings
       };
     } catch (error) {
