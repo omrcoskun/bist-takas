@@ -462,37 +462,9 @@
         <div id="main-content" style="display: none;">
             <!-- TAKAS içeriği -->
             <div id="takas-content">
-            <div class="controls">
-                <div class="control-group" style="flex: 1; max-width: 300px;">
-                    <label>Hisse Seç:</label>
-                    <div class="searchable-select">
-                        <input type="text" 
-                               id="stockSelectInput" 
-                               class="searchable-select-input" 
-                               placeholder="Hisse ara veya seç..."
-                               autocomplete="off"
-                               onfocus="showStockDropdown()"
-                               oninput="filterStocks(this.value)">
-                        <span class="searchable-select-icon">🔍</span>
-                        <div id="stockDropdown" class="searchable-select-dropdown"></div>
-                    </div>
-                </div>
-                <div class="control-group" style="max-width: 150px;">
-                    <label>Geriye Bakış (Gün):</label>
-                    <input type="number" id="lookBackDays" value="20" min="5" max="100">
-                </div>
-                <button onclick="loadStockData()" style="align-self: flex-end;">Grafiği Göster</button>
-                <button onclick="loadTopMomentum()" class="btn-secondary" style="align-self: flex-end;">Top Momentum</button>
-                <button onclick="reloadData()" class="btn-tertiary" style="align-self: flex-end;">Veriyi Yenile</button>
-            </div>
-
-            <div class="grid-layout">
-                <div>
-                    <h3>Top Momentum Hisseleri</h3>
-                    <div id="topStocksList" class="stock-list"></div>
-                </div>
-                <div>
-                    <div class="info-panel">
+                <div style="margin-top: 30px;">
+                    <h3 id="takasChartTitle" style="margin-bottom: 15px; text-align: center; color: #666;">Grafik yükleniyor...</h3>
+                    <div class="info-panel" id="takasInfoPanel" style="display: none;">
                         <div class="info-card">
                             <h3>Mevcut Pozisyon</h3>
                             <div class="value" id="currentPosition">-</div>
@@ -510,62 +482,76 @@
                             <div class="value" id="trend" style="font-size: 1.2em;">-</div>
                         </div>
                     </div>
-
-                    <div class="chart-container">
-                        <canvas id="momentumChart"></canvas>
-                    </div>
-
-                    <div class="chart-container" style="margin-top: 20px;">
-                        <canvas id="rankChart"></canvas>
-                    </div>
-
-                    <div style="margin-top: 30px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <h3 style="margin: 0;">Tüm Hisseler</h3>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <input 
-                                    type="text" 
-                                    id="stockSearchInput" 
-                                    placeholder="Hisse ara..." 
-                                    style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; width: 200px;"
-                                    onkeyup="handleSearchInput()"
-                                />
-                                <span id="stockCountInfo" style="color: #666; font-size: 14px;"></span>
-                            </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                        <div class="chart-container">
+                            <canvas id="momentumChart"></canvas>
                         </div>
-                        <div style="overflow-x: auto;">
-                            <table id="topHoldingsTable" style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                <thead>
-                                    <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                                        <th style="padding: 12px; text-align: left; font-weight: 600;">Sıra</th>
-                                        <th style="padding: 12px; text-align: left; font-weight: 600;">Hisse</th>
-                                        <th style="padding: 12px; text-align: right; font-weight: 600;">Lot</th>
-                                        <th style="padding: 12px; text-align: right; font-weight: 600;">Fiyat (₺)</th>
-                                        <th style="padding: 12px; text-align: right; font-weight: 600;">Tutar (TL)</th>
-                                        <th style="padding: 12px; text-align: center; font-weight: 600;">Sıra Değişimi</th>
-                                        <th style="padding: 12px; text-align: center; font-weight: 600;">Günlük Sıra Trendi</th>
-                                        <th style="padding: 12px; text-align: center; font-weight: 600;">Pozisyon Büyüklüğü</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="topHoldingsTableBody">
-                                    <!-- Tablo içeriği JavaScript ile doldurulacak -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div id="paginationControls" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 15px;">
-                            <!-- Sayfalama kontrolleri JavaScript ile doldurulacak -->
+                        <div class="chart-container">
+                            <canvas id="rankChart"></canvas>
                         </div>
                     </div>
                 </div>
-            </div>
+
+                <div style="margin-top: 30px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <label style="font-weight: 600;">Hisse Seç:</label>
+                            <div class="searchable-select" style="max-width: 300px;">
+                                <input type="text" 
+                                       id="stockSelectInput" 
+                                       class="searchable-select-input" 
+                                       placeholder="Hisse ara veya seç..."
+                                       autocomplete="off"
+                                       onfocus="showStockDropdown()"
+                                       oninput="filterStocks(this.value)">
+                                <span class="searchable-select-icon">🔍</span>
+                                <div id="stockDropdown" class="searchable-select-dropdown"></div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input 
+                                type="text" 
+                                id="stockSearchInput" 
+                                placeholder="Hisse ara..." 
+                                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; width: 200px;"
+                                onkeyup="handleSearchInput()"
+                            />
+                            <span id="stockCountInfo" style="color: #666; font-size: 14px;"></span>
+                        </div>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table id="topHoldingsTable" style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <thead>
+                                <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                    <th style="padding: 12px; text-align: left; font-weight: 600;">Sıra</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600;">Hisse</th>
+                                    <th style="padding: 12px; text-align: right; font-weight: 600;">Lot</th>
+                                    <th style="padding: 12px; text-align: right; font-weight: 600;">Fiyat (₺)</th>
+                                    <th style="padding: 12px; text-align: right; font-weight: 600;">Tutar (TL)</th>
+                                    <th style="padding: 12px; text-align: center; font-weight: 600;">Sıra Değişimi</th>
+                                    <th style="padding: 12px; text-align: center; font-weight: 600;">Günlük Sıra Trendi</th>
+                                    <th style="padding: 12px; text-align: center; font-weight: 600;">Pozisyon Büyüklüğü</th>
+                                </tr>
+                            </thead>
+                            <tbody id="topHoldingsTableBody">
+                                <!-- Tablo içeriği JavaScript ile doldurulacak -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="paginationControls" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 15px;">
+                        <!-- Sayfalama kontrolleri JavaScript ile doldurulacak -->
+                    </div>
+                </div>
             </div>
 
             <!-- AKD içeriği -->
             <div id="akd-content" style="display: none;">
                 <div style="margin-top: 30px;">
                     <h3 id="akdChartTitle" style="margin-bottom: 15px; text-align: center; color: #666;">Grafik yükleniyor...</h3>
-                    <div class="chart-container">
-                        <canvas id="akdChart"></canvas>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 20px;">
+                        <div class="chart-container">
+                            <canvas id="akdChart"></canvas>
+                        </div>
                     </div>
                 </div>
                 
@@ -629,7 +615,6 @@
         // Sayfa yüklendiğinde
         window.onload = async () => {
             await loadStocks();
-            await loadTopMomentum();
             await loadTopHoldingsTable();
             await loadAkdStocks();
             await loadAkdStocksTable();
@@ -710,51 +695,11 @@
         // Dışarı tıklandığında dropdown'u kapat
         document.addEventListener('click', (e) => {
             const select = document.querySelector('.searchable-select');
-            if (!select.contains(e.target)) {
-                document.getElementById('stockDropdown').classList.remove('show');
+            const stockDropdown = document.getElementById('stockDropdown');
+            if (select && stockDropdown && !select.contains(e.target)) {
+                stockDropdown.classList.remove('show');
             }
         });
-
-        // Top momentum hisselerini yükle
-        async function loadTopMomentum() {
-            try {
-                const lookBackDays = parseInt(document.getElementById('lookBackDays').value) || 20;
-                const response = await fetch(`/api/top-momentum?days=${lookBackDays}&limit=30`);
-                const data = await response.json();
-                
-                const listDiv = document.getElementById('topStocksList');
-                listDiv.innerHTML = '';
-
-                if (data.topStocks.length === 0) {
-                    listDiv.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">Momentum hissesi bulunamadı</p>';
-                    return;
-                }
-
-                data.topStocks.forEach(stock => {
-                    const item = document.createElement('div');
-                    item.className = 'stock-item';
-                    item.onclick = () => {
-                        document.getElementById('stockSelectInput').value = stock.senet;
-                        loadStockData(stock.senet);
-                    };
-                    
-                    const changeText = stock.change > 0 ? `+${stock.change}` : stock.change;
-                    const trendClass = stock.isImproving ? 'trend-yukselis' : 'trend-dusus';
-                    
-                    item.innerHTML = `
-                        <strong>${stock.senet}</strong>
-                        <span class="trend-badge ${trendClass}">${changeText} pozisyon</span>
-                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
-                            ${stock.startPozisyon} → ${stock.endPozisyon}
-                        </div>
-                    `;
-                    
-                    listDiv.appendChild(item);
-                });
-            } catch (error) {
-                showError('Top momentum yüklenirken hata: ' + error.message);
-            }
-        }
 
         // Hisse verisini yükle ve grafik çiz
         async function loadStockData(senet = null) {
@@ -813,6 +758,40 @@
             trendEl.textContent = trendMap[analysis.trend] || analysis.trend;
         }
 
+        // Tablodan hisse seçildiğinde grafik çiz
+        async function loadStockDataFromTable(senet) {
+            try {
+                // Seçili hisseyi güncelle
+                selectedStock = senet;
+                
+                const response = await fetch(`/api/stock/${senet}`);
+                const data = await response.json();
+
+                if (!data.momentum || data.momentum.length === 0) {
+                    showError('Bu hisse için veri bulunamadı');
+                    return;
+                }
+
+                currentStock = data;
+                updateInfoPanel(data.analysis);
+                
+                // Info paneli göster
+                document.getElementById('takasInfoPanel').style.display = 'flex';
+                
+                // Grafik başlığını güncelle
+                document.getElementById('takasChartTitle').textContent = `${senet} - Pozisyon Momentum Grafiği`;
+                
+                drawChart(data.momentum, senet);
+                
+                // Tabloyu yeniden render et (seçili satırı vurgulamak için)
+                renderTable();
+                
+                hideError();
+            } catch (error) {
+                showError('Hisse verisi yüklenirken hata: ' + error.message);
+            }
+        }
+
         // Grafik çiz
         function drawChart(momentumData, stockName) {
             const ctx = document.getElementById('momentumChart').getContext('2d');
@@ -850,13 +829,7 @@
                     maintainAspectRatio: false,
                     plugins: {
                         title: {
-                            display: true,
-                            text: `${stockName} - Pozisyon Momentum Grafiği`,
-                            font: {
-                                size: 18,
-                                weight: 'bold'
-                            },
-                            padding: 20
+                            display: false
                         },
                         legend: {
                             display: true,
@@ -1108,7 +1081,6 @@
                 await fetch('/api/reload', { method: 'POST' });
                 await new Promise(resolve => setTimeout(resolve, 2000)); // 2 saniye bekle
                 await loadStocks();
-                await loadTopMomentum();
                 await loadTopHoldingsTable();
                 await loadAkdStocksTable();
                 if (currentStock) {
@@ -1132,14 +1104,12 @@
             document.getElementById('error').style.display = 'none';
         }
 
-        // Look back days değiştiğinde top momentum'u yenile
-        document.getElementById('lookBackDays').addEventListener('change', loadTopMomentum);
-
         // Tüm hisseleri tutacak değişkenler
         let allHoldingsData = [];
         let filteredHoldingsData = [];
         let currentPage = 1;
         const itemsPerPage = 20;
+        let selectedStock = null; // Seçili hisse
 
         // Top holdings tablosunu yükle
         async function loadTopHoldingsTable() {
@@ -1164,6 +1134,12 @@
                 // İlk sayfayı göster
                 currentPage = 1;
                 renderTable();
+                
+                // İlk sıradaki hissenin grafiğini otomatik çiz
+                if (allHoldingsData.length > 0) {
+                    const firstStock = allHoldingsData[0];
+                    await loadStockDataFromTable(firstStock.senet);
+                }
             } catch (error) {
                 console.error('Top holdings tablosu yüklenirken hata:', error);
             }
@@ -1202,7 +1178,10 @@
             updatePaginationControls(totalPages);
 
             // Her hisse için momentum verisini al
-            for (const holding of currentPageData) {
+            for (let i = 0; i < currentPageData.length; i++) {
+                const holding = currentPageData[i];
+                const isFirstInPage = currentPage === 1 && i === 0;
+                
                 try {
                     const momentumResponse = await fetch(`/api/stock/${holding.senet}`);
                     const momentumData = await momentumResponse.json();
@@ -1215,7 +1194,7 @@
                         return dateA - dateB;
                     });
                     
-                    const row = createTableRow(holding, momentum);
+                    const row = createTableRow(holding, momentum, isFirstInPage);
                     tbody.appendChild(row);
                     
                     // Mini grafik çizmek için biraz bekle
@@ -1223,7 +1202,7 @@
                 } catch (error) {
                     console.error(`Momentum verisi alınamadı: ${holding.senet}`, error);
                     // Momentum verisi yoksa sadece holding bilgilerini göster
-                    const row = createTableRow(holding, []);
+                    const row = createTableRow(holding, [], isFirstInPage);
                     tbody.appendChild(row);
                 }
             }
@@ -1313,8 +1292,33 @@
         }
 
         // Tablo satırı oluştur
-        function createTableRow(holding, momentum) {
+        function createTableRow(holding, momentum, isFirstInPage = false) {
             const row = document.createElement('tr');
+            row.dataset.senet = holding.senet;
+            row.style.cursor = 'pointer';
+            
+            // Seçili hisse veya ilk sayfa ve ilk satırsa vurgula
+            const isSelected = selectedStock === holding.senet;
+            const isFirstRow = isFirstInPage && !selectedStock;
+            
+            if (isSelected || isFirstRow) {
+                row.style.backgroundColor = '#e8f4f8';
+                row.style.borderLeft = '4px solid #667eea';
+            }
+            
+            row.onclick = () => loadStockDataFromTable(holding.senet);
+            row.onmouseover = function() { 
+                if (!isSelected && !isFirstRow) {
+                    this.style.backgroundColor = '#f5f5f5'; 
+                }
+            };
+            row.onmouseout = function() { 
+                if (!isSelected && !isFirstRow) {
+                    this.style.backgroundColor = ''; 
+                } else {
+                    this.style.backgroundColor = '#e8f4f8';
+                }
+            };
             
             // Sıra değişimi hesapla
             let positionChange = '-';
@@ -1381,7 +1385,7 @@
 
             row.innerHTML = `
                 <td>${holding.pozisyon}</td>
-                <td style="font-weight: 600; cursor: pointer;" onclick="document.getElementById('stockSelectInput').value='${holding.senet}'; loadStockData('${holding.senet}');">${holding.senet}</td>
+                <td style="font-weight: 600;">${holding.senet}</td>
                 <td style="text-align: right;">${(holding.lot / 1000).toFixed(1)}K</td>
                 <td style="text-align: right;">${holding.fiyat.toFixed(2)}</td>
                 <td style="text-align: right;">${(holding.tl / 1000000).toFixed(2)}M</td>
