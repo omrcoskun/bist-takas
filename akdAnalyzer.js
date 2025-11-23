@@ -88,6 +88,29 @@ class AkdAnalyzer {
         pozisyon: h.pozisyon
       }));
   }
+
+  /**
+   * Tüm hisseleri net değere göre sıralayarak döndürür (en çok olandan en az olana)
+   */
+  getAllStocksByNet(date = null) {
+    const targetDate = date || (this.allData.length > 0 ? this.allData[this.allData.length - 1].date : null);
+    if (!targetDate) return [];
+    
+    const dayData = this.allData.find(d => d.date === targetDate);
+    
+    if (!dayData) return [];
+
+    return dayData.holdings
+      .map(h => ({
+        senet: h.senet,
+        satisMiktar: h.satisMiktar,
+        alisMiktar: h.alisMiktar,
+        net: h.net,
+        maliyet: h.maliyet,
+        pozisyon: h.pozisyon
+      }))
+      .sort((a, b) => b.net - a.net); // Net değere göre azalan sıralama
+  }
 }
 
 module.exports = AkdAnalyzer;

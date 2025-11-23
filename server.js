@@ -9,6 +9,35 @@ const AkdAnalyzer = require('./akdAnalyzer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Delist edilmiş hisse sembolleri (ekranlarda gözükmeyecek)
+const DELISTED_STOCKS = [
+  'APMDLF',
+  'GLDTRF',
+  'GMSTRF',
+  'OPT25F',
+  'OPTGYF',
+  'QTEMZF',
+  'USDTRF',
+  'Z30KEF',
+  'Z30KPF',
+  'ZGOLDF',
+  'ZPLIBF',
+  'ZPT10F',
+  'ZPX30F',
+  'ZRE20F',
+  'ZTM25F'
+];
+
+// Hisse sembolünün delist edilip edilmediğini kontrol et
+function isDelisted(senet) {
+  return DELISTED_STOCKS.includes(senet.toUpperCase());
+}
+
+// Holdings listesinden delist edilmiş hisseleri filtrele
+function filterDelistedHoldings(holdings) {
+  return holdings.filter(h => !isDelisted(h.senet));
+}
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -117,7 +146,10 @@ app.get('/api/top-momentum', (req, res) => {
   const minDataPoints = parseInt(req.query.minPoints) || 10;
   const limit = parseInt(req.query.limit) || 20;
 
-  const topStocks = analyzer.getTopMomentumStocks(minDataPoints, lookBackDays);
+  let topStocks = analyzer.getTopMomentumStocks(minDataPoints, lookBackDays);
+  
+  // Delist edilmiş hisseleri filtrele
+  topStocks = topStocks.filter(s => !isDelisted(s.senet));
   
   res.json({
     lookBackDays,
@@ -135,7 +167,10 @@ app.get('/api/stocks', (req, res) => {
   const allStocks = new Set();
   for (const dayData of allData) {
     for (const holding of dayData.holdings) {
-      allStocks.add(holding.senet);
+      // Delist edilmiş hisseleri ekleme
+      if (!isDelisted(holding.senet)) {
+        allStocks.add(holding.senet);
+      }
     }
   }
 
@@ -151,14 +186,27 @@ app.get('/api/top-holdings', (req, res) => {
     return res.status(503).json({ error: 'Veri henüz yüklenmedi' });
   }
 
-  const limit = parseInt(req.query.limit) || 20;
+  const limit = parseInt(req.query.limit);
   const lastDay = allData[allData.length - 1];
   
   if (!lastDay) {
     return res.status(404).json({ error: 'Veri bulunamadı' });
   }
 
-  const topHoldings = lastDay.holdings.slice(0, limit).map(h => ({
+  // Tüm holdings sayısını logla
+  console.log(`Top holdings endpoint: Toplam ${lastDay.holdings.length} hisse var, limit: ${limit || 'yok'}`);
+
+  // Limit belirtilmişse sadece o kadarını döndür, yoksa tümünü döndür
+  let holdings = limit && !isNaN(limit)
+    ? lastDay.holdings.slice(0, limit)
+    : lastDay.holdings;
+
+  // Delist edilmiş hisseleri filtrele
+  holdings = filterDelistedHoldings(holdings);
+
+  console.log(`Döndürülen hisse sayısı: ${holdings.length}`);
+
+  const topHoldings = holdings.map(h => ({
     senet: h.senet,
     lot: h.lot,
     fiyat: h.fiyat,
@@ -237,7 +285,7 @@ app.get('/api/akd/stocks', (req, res) => {
     return res.status(503).json({ error: 'AKD verisi henüz yüklenmedi' });
   }
 
-  const allStocks = akdAnalyzer.getAllStocks();
+  const allStocks = akdAnalyzer.getAllStocks().filter(s => !isDelisted(s));
 
   res.json({
     stocks: allStocks,
@@ -259,6 +307,25 @@ app.get('/api/akd/top-sales', (req, res) => {
   res.json({
     topStocks,
     total: topStocks.length
+  });
+});
+
+// AKD: Tüm hisseleri net değere göre sıralayarak döndür
+app.get('/api/akd/all-stocks', (req, res) => {
+  if (!akdData) {
+    return res.status(503).json({ error: 'AKD verisi henüz yüklenmedi' });
+  }
+
+  const date = req.query.date || null;
+  let allStocks = akdAnalyzer.getAllStocksByNet(date);
+  
+  // Delist edilmiş hisseleri filtrele
+  allStocks = allStocks.filter(s => !isDelisted(s.senet));
+  
+  res.json({
+    stocks: allStocks,
+    total: allStocks.length,
+    date: date || (akdData.length > 0 ? akdData[akdData.length - 1].date : null)
   });
 });
 

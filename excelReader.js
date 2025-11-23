@@ -51,14 +51,26 @@ class ExcelReader {
       const worksheet = workbook.Sheets[sheetName];
       
       // Excel'i JSON'a çevir
+      // range parametresi olmadan tüm satırları oku (başlık satırını filtreleme ile atlayacağız)
       const data = XLSX.utils.sheet_to_json(worksheet, { 
         header: ['No', 'Senet', 'Lot', 'Fiyat', 'TL', 'YuzdeTL', 'Toplam', 'Yuzde', 'ToplamTL'],
-        range: 1 // İlk satırı atla (başlık)
+        defval: null // Boş hücreler için null döndür
       });
 
       // Geçerli hisse verilerini filtrele (No kolonu sayı olanlar)
+      // İlk satır başlık olabilir, onu atla
+      console.log(`Excel dosyası okunuyor: ${filePath}, Toplam satır: ${data.length}`);
+      
       const holdings = data
-        .filter(row => row.No && typeof row.No === 'number' && row.Senet)
+        .filter(row => {
+          // Başlık satırını ve geçersiz satırları filtrele
+          // No kolonu sayı olmalı ve Senet kolonu dolu olmalı
+          // Ayrıca "No", "Senet" gibi başlık metinlerini de filtrele
+          if (!row.No || !row.Senet) return false;
+          if (typeof row.No === 'string' && (row.No.toLowerCase() === 'no' || row.No.toLowerCase() === 'sıra')) return false;
+          if (typeof row.Senet === 'string' && row.Senet.toLowerCase() === 'senet') return false;
+          return typeof row.No === 'number' && row.Senet;
+        })
         .map(row => ({
           no: row.No,
           senet: String(row.Senet).trim(),
@@ -78,6 +90,8 @@ class ExcelReader {
           ...holding,
           pozisyon: index + 1 // Sıralama pozisyonu (1 = en çok tutulan)
         }));
+      
+      console.log(`Filtrelenmiş hisse sayısı: ${holdings.length}`);
 
       // Tarihi doğrudan string formatında oluştur (timezone sorununu önlemek için)
       const year = date.getUTCFullYear();
