@@ -8,6 +8,21 @@ const fs = require('fs');
 class ExcelReader {
   constructor(folderPath) {
     this.folderPath = folderPath;
+    
+    // Eski ticker isimlerini yeni isimlere map et
+    this.tickerMapping = {
+      'KOZAL': 'TRALT',
+      'KOZAA': 'TRMET',
+      'IPEKE': 'TRENJ'
+    };
+  }
+  
+  /**
+   * Ticker ismini normalize et (eski isimleri yeni isimlere çevir)
+   */
+  normalizeTicker(ticker) {
+    const upperTicker = ticker.toUpperCase().trim();
+    return this.tickerMapping[upperTicker] || upperTicker;
   }
 
   /**
@@ -61,7 +76,8 @@ class ExcelReader {
       // İlk satır başlık olabilir, onu atla
       console.log(`Excel dosyası okunuyor: ${filePath}, Toplam satır: ${data.length}`);
       
-      const holdings = data
+      // Önce tüm verileri normalize et
+      const normalizedHoldings = data
         .filter(row => {
           // Başlık satırını ve geçersiz satırları filtrele
           // No kolonu sayı olmalı ve Senet kolonu dolu olmalı
@@ -73,7 +89,7 @@ class ExcelReader {
         })
         .map(row => ({
           no: row.No,
-          senet: String(row.Senet).trim(),
+          senet: this.normalizeTicker(String(row.Senet).trim()),
           lot: parseFloat(row.Lot) || 0,
           fiyat: parseFloat(row.Fiyat) || 0,
           tl: parseFloat(row.TL) || 0,
@@ -81,7 +97,30 @@ class ExcelReader {
           toplam: parseFloat(row.Toplam) || 0,
           yuzde: parseFloat(row.Yuzde) || 0,
           toplamTL: parseFloat(row.ToplamTL) || 0
-        }))
+        }));
+      
+      // Aynı ticker için verileri birleştir (eski ve yeni isimler aynı ticker'a map edilirse)
+      const holdingsMap = new Map();
+      normalizedHoldings.forEach(holding => {
+        const existing = holdingsMap.get(holding.senet);
+        if (existing) {
+          // Aynı ticker için verileri birleştir (lot, tl, vb. topla)
+          existing.lot += holding.lot;
+          existing.tl += holding.tl;
+          existing.yuzdeTL += holding.yuzdeTL;
+          existing.toplam += holding.toplam;
+          existing.yuzde += holding.yuzde;
+          existing.toplamTL += holding.toplamTL;
+          // Fiyat için ağırlıklı ortalama kullan
+          if (holding.lot > 0 && existing.lot > 0) {
+            existing.fiyat = (existing.fiyat * existing.lot + holding.fiyat * holding.lot) / (existing.lot + holding.lot);
+          }
+        } else {
+          holdingsMap.set(holding.senet, { ...holding });
+        }
+      });
+      
+      const holdings = Array.from(holdingsMap.values())
         .sort((a, b) => {
           // TL değerine göre azalan sıralama (en çok tutulan üstte)
           return b.tl - a.tl;

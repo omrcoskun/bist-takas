@@ -9,6 +9,19 @@ const AkdAnalyzer = require('./akdAnalyzer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Eski ticker isimlerini yeni isimlere map et
+const TICKER_MAPPING = {
+  'KOZAL': 'TRALT',
+  'KOZAA': 'TRMET',
+  'IPEKE': 'TRENJ'
+};
+
+// Ticker ismini normalize et
+function normalizeTicker(ticker) {
+  const upperTicker = ticker.toUpperCase().trim();
+  return TICKER_MAPPING[upperTicker] || upperTicker;
+}
+
 // Delist edilmiş hisse sembolleri (ekranlarda gözükmeyecek)
 const DELISTED_STOCKS = [
   'APMDLF',
@@ -120,7 +133,7 @@ app.get('/api/stock/:senet', (req, res) => {
     return res.status(503).json({ error: 'Veri henüz yüklenmedi' });
   }
 
-  const senet = req.params.senet.toUpperCase();
+  const senet = normalizeTicker(req.params.senet);
   const momentum = analyzer.getStockMomentum(senet);
   
   if (momentum.length === 0) {
@@ -247,7 +260,7 @@ app.get('/api/akd/stock/:senet', (req, res) => {
     return res.status(503).json({ error: 'AKD verisi henüz yüklenmedi' });
   }
 
-  const senet = req.params.senet.toUpperCase();
+  const senet = normalizeTicker(req.params.senet);
   const stockData = akdAnalyzer.getStockData(senet);
   
   if (stockData.length === 0) {
@@ -256,7 +269,7 @@ app.get('/api/akd/stock/:senet', (req, res) => {
 
   // TAKAS datasından fiyat bilgisini çek
   const stockDataWithPrice = stockData.map(akdDay => {
-    // Aynı tarihte TAKAS datasında bu hisseyi bul
+    // Aynı tarihte TAKAS datasında bu hisseyi bul (senet zaten normalize edilmiş)
     const takasDay = allData ? allData.find(d => d.date === akdDay.date) : null;
     let fiyat = null;
     

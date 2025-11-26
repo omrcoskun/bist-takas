@@ -8,6 +8,21 @@ const fs = require('fs');
 class AkdReader {
   constructor(folderPath) {
     this.folderPath = folderPath;
+    
+    // Eski ticker isimlerini yeni isimlere map et
+    this.tickerMapping = {
+      'KOZAL': 'TRALT',
+      'KOZAA': 'TRMET',
+      'IPEKE': 'TRENJ'
+    };
+  }
+  
+  /**
+   * Ticker ismini normalize et (eski isimleri yeni isimlere çevir)
+   */
+  normalizeTicker(ticker) {
+    const upperTicker = ticker.toUpperCase().trim();
+    return this.tickerMapping[upperTicker] || upperTicker;
   }
 
   /**
@@ -57,11 +72,11 @@ class AkdReader {
       });
 
       // Geçerli hisse verilerini filtrele (No kolonu sayı olanlar)
-      const holdings = data
+      const normalizedHoldings = data
         .filter(row => row.No && typeof row.No === 'number' && row.Senet)
         .map(row => ({
           no: row.No,
-          senet: String(row.Senet).trim(),
+          senet: this.normalizeTicker(String(row.Senet).trim()),
           alisMiktar: parseFloat(row.AlisMiktar) || 0,
           alisOrtalama: parseFloat(row.AlisOrtalama) || 0,
           satisMiktar: parseFloat(row.SatisMiktar) || 0,
@@ -70,7 +85,39 @@ class AkdReader {
           net: parseFloat(row.Net) || 0,
           maliyet: parseFloat(row.Maliyet) || 0,
           netYuzde: parseFloat(row.NetYuzde) || 0
-        }))
+        }));
+      
+      // Aynı ticker için verileri birleştir (eski ve yeni isimler aynı ticker'a map edilirse)
+      const holdingsMap = new Map();
+      normalizedHoldings.forEach(holding => {
+        const existing = holdingsMap.get(holding.senet);
+        if (existing) {
+          // Aynı ticker için verileri birleştir
+          existing.alisMiktar += holding.alisMiktar;
+          existing.satisMiktar += holding.satisMiktar;
+          existing.toplam += holding.toplam;
+          existing.net += holding.net;
+          existing.netYuzde += holding.netYuzde;
+          // Ortalamalar için ağırlıklı ortalama
+          const totalAlis = existing.alisMiktar + holding.alisMiktar;
+          const totalSatis = existing.satisMiktar + holding.satisMiktar;
+          if (totalAlis > 0) {
+            existing.alisOrtalama = (existing.alisOrtalama * existing.alisMiktar + holding.alisOrtalama * holding.alisMiktar) / totalAlis;
+          }
+          if (totalSatis > 0) {
+            existing.satisOrtalama = (existing.satisOrtalama * existing.satisMiktar + holding.satisOrtalama * holding.satisMiktar) / totalSatis;
+          }
+          // Maliyet için ağırlıklı ortalama
+          const totalMaliyet = existing.toplam + holding.toplam;
+          if (totalMaliyet > 0) {
+            existing.maliyet = (existing.maliyet * existing.toplam + holding.maliyet * holding.toplam) / totalMaliyet;
+          }
+        } else {
+          holdingsMap.set(holding.senet, { ...holding });
+        }
+      });
+      
+      const holdings = Array.from(holdingsMap.values())
         .sort((a, b) => {
           // Satış miktarına göre azalan sıralama (en çok satış üstte)
           return b.satisMiktar - a.satisMiktar;
