@@ -18,8 +18,10 @@ const TICKER_MAPPING = {
 
 // Ticker ismini normalize et
 function normalizeTicker(ticker) {
-  const upperTicker = ticker.toUpperCase().trim();
-  return TICKER_MAPPING[upperTicker] || upperTicker;
+  if (!ticker || typeof ticker !== 'string') return '';
+  // Boşlukları, özel karakterleri temizle ve büyük harfe çevir
+  const cleaned = String(ticker).trim().toUpperCase().replace(/\s+/g, '').replace(/[^\w]/g, '');
+  return TICKER_MAPPING[cleaned] || cleaned;
 }
 
 // Delist edilmiş hisse sembolleri (ekranlarda gözükmeyecek)
@@ -217,9 +219,48 @@ app.get('/api/top-holdings', (req, res) => {
   // Delist edilmiş hisseleri filtrele
   holdings = filterDelistedHoldings(holdings);
 
-  console.log(`Döndürülen hisse sayısı: ${holdings.length}`);
+  // Tekrarları temizle (aynı senet için sadece birini tut)
+  const holdingsMap = new Map();
+  holdings.forEach(h => {
+    if (!h.senet) return; // Boş senet değerlerini atla
+    
+    const normalizedSenet = normalizeTicker(h.senet);
+    if (!normalizedSenet) return; // Normalize edilemeyen değerleri atla
+    
+    const existing = holdingsMap.get(normalizedSenet);
+    
+    if (!existing) {
+      // Senet değerini normalize edilmiş haliyle kaydet
+      holdingsMap.set(normalizedSenet, { ...h, senet: normalizedSenet });
+    } else {
+      // Eğer aynı hisse varsa, TL değeri daha yüksek olanı tut
+      if (h.tl > existing.tl) {
+        holdingsMap.set(normalizedSenet, { ...h, senet: normalizedSenet });
+      }
+    }
+  });
 
-  const topHoldings = holdings.map(h => ({
+  // Map'ten array'e çevir ve TL'ye göre sırala
+  const uniqueHoldings = Array.from(holdingsMap.values())
+    .sort((a, b) => b.tl - a.tl)
+    .map((holding, index) => ({
+      ...holding,
+      pozisyon: index + 1 // Pozisyonu yeniden hesapla
+    }));
+
+  // Duplicate kontrolü için log
+  const senetCounts = {};
+  uniqueHoldings.forEach(h => {
+    senetCounts[h.senet] = (senetCounts[h.senet] || 0) + 1;
+  });
+  const duplicates = Object.entries(senetCounts).filter(([_, count]) => count > 1);
+  if (duplicates.length > 0) {
+    console.warn(`⚠️ DUPLICATE HİSSELER BULUNDU:`, duplicates);
+  }
+
+  console.log(`Döndürülen hisse sayısı: ${uniqueHoldings.length} (tekrarlar temizlendi)`);
+
+  const topHoldings = uniqueHoldings.map(h => ({
     senet: h.senet,
     lot: h.lot,
     fiyat: h.fiyat,

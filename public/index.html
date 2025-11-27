@@ -1125,11 +1125,34 @@
                     return;
                 }
 
-                // Tüm verileri sakla
-                allHoldingsData = data.holdings;
+                // Tekrarları temizle (aynı senet için sadece birini tut)
+                const holdingsMap = new Map();
+                data.holdings.forEach(h => {
+                    if (!h.senet) return; // Boş senet değerlerini atla
+                    
+                    // Boşlukları, özel karakterleri temizle ve büyük harfe çevir
+                    const normalizedSenet = String(h.senet).trim().toUpperCase().replace(/\s+/g, '').replace(/[^\w]/g, '');
+                    if (!normalizedSenet) return; // Normalize edilemeyen değerleri atla
+                    
+                    const existing = holdingsMap.get(normalizedSenet);
+                    
+                    if (!existing) {
+                        // Senet değerini normalize edilmiş haliyle kaydet
+                        holdingsMap.set(normalizedSenet, { ...h, senet: normalizedSenet });
+                    } else {
+                        // Eğer aynı hisse varsa, TL değeri daha yüksek olanı tut
+                        if (h.tl > existing.tl) {
+                            holdingsMap.set(normalizedSenet, { ...h, senet: normalizedSenet });
+                        }
+                    }
+                });
+
+                // Map'ten array'e çevir ve pozisyona göre sırala
+                allHoldingsData = Array.from(holdingsMap.values())
+                    .sort((a, b) => a.pozisyon - b.pozisyon);
                 filteredHoldingsData = [...allHoldingsData];
                 
-                console.log('Top holdings yüklendi:', allHoldingsData.length, 'toplam hisse');
+                console.log('Top holdings yüklendi:', allHoldingsData.length, 'toplam hisse (tekrarlar temizlendi)');
                 
                 // İlk sayfayı göster
                 currentPage = 1;
@@ -1162,24 +1185,92 @@
         }
 
         // Tabloyu render et
+        let isRendering = false;
         async function renderTable() {
-            const tbody = document.getElementById('topHoldingsTableBody');
-            tbody.innerHTML = '';
+            // Eğer zaten render ediliyorsa bekle
+            if (isRendering) {
+                console.warn('⚠️ renderTable zaten çalışıyor, atlanıyor...');
+                return;
+            }
+            isRendering = true;
+            
+            try {
+                const tbody = document.getElementById('topHoldingsTableBody');
+                if (!tbody) {
+                    console.error('tbody bulunamadı!');
+                    return;
+                }
+                
+                // Tbody'yi tamamen temizle
+                tbody.innerHTML = '';
+                console.log('Tbody temizlendi, yeni render başlıyor...');
+
+            // Önce filteredHoldingsData'dan tekrarları temizle (çok agresif distinct)
+            const uniqueHoldingsMap = new Map();
+            const seenSenets = new Set();
+            
+            filteredHoldingsData.forEach(h => {
+                if (!h.senet) return;
+                const normalizedSenet = String(h.senet).trim().toUpperCase().replace(/\s+/g, '').replace(/[^\w]/g, '');
+                if (!normalizedSenet || seenSenets.has(normalizedSenet)) {
+                    return; // Zaten gördüysek atla
+                }
+                seenSenets.add(normalizedSenet);
+                uniqueHoldingsMap.set(normalizedSenet, { ...h, senet: normalizedSenet });
+            });
+            
+            const uniqueFilteredData = Array.from(uniqueHoldingsMap.values())
+                .sort((a, b) => a.pozisyon - b.pozisyon);
+
+            console.log(`RenderTable: ${filteredHoldingsData.length} -> ${uniqueFilteredData.length} unique holdings`);
 
             // Sayfalama hesaplamaları
-            const totalItems = filteredHoldingsData.length;
+            const totalItems = uniqueFilteredData.length;
             const totalPages = Math.ceil(totalItems / itemsPerPage);
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-            const currentPageData = filteredHoldingsData.slice(startIndex, endIndex);
+            
+            // Sayfa verisini alırken de distinct yap
+            const pageDataRaw = uniqueFilteredData.slice(startIndex, endIndex);
+            const pageDataMap = new Map();
+            pageDataRaw.forEach(h => {
+                const normalizedSenet = String(h.senet).trim().toUpperCase().replace(/\s+/g, '').replace(/[^\w]/g, '');
+                if (normalizedSenet && !pageDataMap.has(normalizedSenet)) {
+                    pageDataMap.set(normalizedSenet, h);
+                }
+            });
+            const currentPageData = Array.from(pageDataMap.values());
+            
+            console.log(`Sayfa ${currentPage}: ${pageDataRaw.length} -> ${currentPageData.length} unique holdings`);
 
             // Sayfa bilgisini güncelle
             updatePaginationInfo(totalItems, totalPages);
             updatePaginationControls(totalPages);
 
-            // Her hisse için momentum verisini al
+            // Her hisse için momentum verisini al (tekrarları önlemek için Set kullan)
+            const addedSenets = new Set();
+            // Tbody'de zaten eklenmiş hisseleri de kontrol et
+            const existingRows = tbody.querySelectorAll('tr');
+            existingRows.forEach(row => {
+                const senetAttr = row.dataset.senet;
+                if (senetAttr) {
+                    const normalized = String(senetAttr).trim().toUpperCase().replace(/\s+/g, '').replace(/[^\w]/g, '');
+                    if (normalized) addedSenets.add(normalized);
+                }
+            });
+            
             for (let i = 0; i < currentPageData.length; i++) {
                 const holding = currentPageData[i];
+                if (!holding.senet) continue;
+                
+                // Normalize et ve kontrol et
+                const normalizedSenet = String(holding.senet).trim().toUpperCase().replace(/\s+/g, '').replace(/[^\w]/g, '');
+                if (!normalizedSenet || addedSenets.has(normalizedSenet)) {
+                    console.warn(`⚠️ Tekrar eden hisse atlandı: ${holding.senet} (normalize: ${normalizedSenet})`);
+                    continue; // Zaten eklenmişse atla
+                }
+                addedSenets.add(normalizedSenet);
+                
                 const isFirstInPage = currentPage === 1 && i === 0;
                 
                 try {
@@ -1205,6 +1296,10 @@
                     const row = createTableRow(holding, [], isFirstInPage);
                     tbody.appendChild(row);
                 }
+            }
+            } finally {
+                isRendering = false;
+                console.log(`RenderTable tamamlandı. Toplam ${tbody.children.length} satır eklendi.`);
             }
         }
 

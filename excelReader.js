@@ -21,8 +21,10 @@ class ExcelReader {
    * Ticker ismini normalize et (eski isimleri yeni isimlere çevir)
    */
   normalizeTicker(ticker) {
-    const upperTicker = ticker.toUpperCase().trim();
-    return this.tickerMapping[upperTicker] || upperTicker;
+    if (!ticker || typeof ticker !== 'string') return '';
+    // Boşlukları, özel karakterleri temizle ve büyük harfe çevir
+    const cleaned = String(ticker).trim().toUpperCase().replace(/\s+/g, '').replace(/[^\w]/g, '');
+    return this.tickerMapping[cleaned] || cleaned;
   }
 
   /**
@@ -99,10 +101,17 @@ class ExcelReader {
           toplamTL: parseFloat(row.ToplamTL) || 0
         }));
       
+      // Boş senet değerlerini filtrele
+      const validHoldings = normalizedHoldings.filter(h => h.senet && h.senet.length > 0);
+      
       // Aynı ticker için verileri birleştir (eski ve yeni isimler aynı ticker'a map edilirse)
       const holdingsMap = new Map();
-      normalizedHoldings.forEach(holding => {
-        const existing = holdingsMap.get(holding.senet);
+      validHoldings.forEach(holding => {
+        // Senet değerini tekrar normalize et (güvenlik için)
+        const normalizedSenet = this.normalizeTicker(holding.senet);
+        if (!normalizedSenet) return; // Boşsa atla
+        
+        const existing = holdingsMap.get(normalizedSenet);
         if (existing) {
           // Aynı ticker için verileri birleştir (lot, tl, vb. topla)
           existing.lot += holding.lot;
@@ -116,7 +125,8 @@ class ExcelReader {
             existing.fiyat = (existing.fiyat * existing.lot + holding.fiyat * holding.lot) / (existing.lot + holding.lot);
           }
         } else {
-          holdingsMap.set(holding.senet, { ...holding });
+          // Senet değerini normalize edilmiş haliyle kaydet
+          holdingsMap.set(normalizedSenet, { ...holding, senet: normalizedSenet });
         }
       });
       
