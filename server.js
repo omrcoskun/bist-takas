@@ -9,21 +9,6 @@ const AkdAnalyzer = require('./akdAnalyzer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Eski ticker isimlerini yeni isimlere map et
-const TICKER_MAPPING = {
-  'KOZAL': 'TRALT',
-  'KOZAA': 'TRMET',
-  'IPEKE': 'TRENJ'
-};
-
-// Ticker ismini normalize et
-function normalizeTicker(ticker) {
-  if (!ticker || typeof ticker !== 'string') return '';
-  // Boşlukları, özel karakterleri temizle ve büyük harfe çevir
-  const cleaned = String(ticker).trim().toUpperCase().replace(/\s+/g, '').replace(/[^\w]/g, '');
-  return TICKER_MAPPING[cleaned] || cleaned;
-}
-
 // Delist edilmiş hisse sembolleri (ekranlarda gözükmeyecek)
 const DELISTED_STOCKS = [
   'APMDLF',
@@ -135,7 +120,7 @@ app.get('/api/stock/:senet', (req, res) => {
     return res.status(503).json({ error: 'Veri henüz yüklenmedi' });
   }
 
-  const senet = normalizeTicker(req.params.senet);
+  const senet = req.params.senet.toUpperCase();
   const momentum = analyzer.getStockMomentum(senet);
   
   if (momentum.length === 0) {
@@ -219,48 +204,9 @@ app.get('/api/top-holdings', (req, res) => {
   // Delist edilmiş hisseleri filtrele
   holdings = filterDelistedHoldings(holdings);
 
-  // Tekrarları temizle (aynı senet için sadece birini tut)
-  const holdingsMap = new Map();
-  holdings.forEach(h => {
-    if (!h.senet) return; // Boş senet değerlerini atla
-    
-    const normalizedSenet = normalizeTicker(h.senet);
-    if (!normalizedSenet) return; // Normalize edilemeyen değerleri atla
-    
-    const existing = holdingsMap.get(normalizedSenet);
-    
-    if (!existing) {
-      // Senet değerini normalize edilmiş haliyle kaydet
-      holdingsMap.set(normalizedSenet, { ...h, senet: normalizedSenet });
-    } else {
-      // Eğer aynı hisse varsa, TL değeri daha yüksek olanı tut
-      if (h.tl > existing.tl) {
-        holdingsMap.set(normalizedSenet, { ...h, senet: normalizedSenet });
-      }
-    }
-  });
+  console.log(`Döndürülen hisse sayısı: ${holdings.length}`);
 
-  // Map'ten array'e çevir ve TL'ye göre sırala
-  const uniqueHoldings = Array.from(holdingsMap.values())
-    .sort((a, b) => b.tl - a.tl)
-    .map((holding, index) => ({
-      ...holding,
-      pozisyon: index + 1 // Pozisyonu yeniden hesapla
-    }));
-
-  // Duplicate kontrolü için log
-  const senetCounts = {};
-  uniqueHoldings.forEach(h => {
-    senetCounts[h.senet] = (senetCounts[h.senet] || 0) + 1;
-  });
-  const duplicates = Object.entries(senetCounts).filter(([_, count]) => count > 1);
-  if (duplicates.length > 0) {
-    console.warn(`⚠️ DUPLICATE HİSSELER BULUNDU:`, duplicates);
-  }
-
-  console.log(`Döndürülen hisse sayısı: ${uniqueHoldings.length} (tekrarlar temizlendi)`);
-
-  const topHoldings = uniqueHoldings.map(h => ({
+  const topHoldings = holdings.map(h => ({
     senet: h.senet,
     lot: h.lot,
     fiyat: h.fiyat,
@@ -301,7 +247,7 @@ app.get('/api/akd/stock/:senet', (req, res) => {
     return res.status(503).json({ error: 'AKD verisi henüz yüklenmedi' });
   }
 
-  const senet = normalizeTicker(req.params.senet);
+  const senet = req.params.senet.toUpperCase();
   const stockData = akdAnalyzer.getStockData(senet);
   
   if (stockData.length === 0) {
@@ -310,7 +256,7 @@ app.get('/api/akd/stock/:senet', (req, res) => {
 
   // TAKAS datasından fiyat bilgisini çek
   const stockDataWithPrice = stockData.map(akdDay => {
-    // Aynı tarihte TAKAS datasında bu hisseyi bul (senet zaten normalize edilmiş)
+    // Aynı tarihte TAKAS datasında bu hisseyi bul
     const takasDay = allData ? allData.find(d => d.date === akdDay.date) : null;
     let fiyat = null;
     

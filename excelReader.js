@@ -8,23 +8,6 @@ const fs = require('fs');
 class ExcelReader {
   constructor(folderPath) {
     this.folderPath = folderPath;
-    
-    // Eski ticker isimlerini yeni isimlere map et
-    this.tickerMapping = {
-      'KOZAL': 'TRALT',
-      'KOZAA': 'TRMET',
-      'IPEKE': 'TRENJ'
-    };
-  }
-  
-  /**
-   * Ticker ismini normalize et (eski isimleri yeni isimlere çevir)
-   */
-  normalizeTicker(ticker) {
-    if (!ticker || typeof ticker !== 'string') return '';
-    // Boşlukları, özel karakterleri temizle ve büyük harfe çevir
-    const cleaned = String(ticker).trim().toUpperCase().replace(/\s+/g, '').replace(/[^\w]/g, '');
-    return this.tickerMapping[cleaned] || cleaned;
   }
 
   /**
@@ -78,8 +61,7 @@ class ExcelReader {
       // İlk satır başlık olabilir, onu atla
       console.log(`Excel dosyası okunuyor: ${filePath}, Toplam satır: ${data.length}`);
       
-      // Önce tüm verileri normalize et
-      const normalizedHoldings = data
+      const holdings = data
         .filter(row => {
           // Başlık satırını ve geçersiz satırları filtrele
           // No kolonu sayı olmalı ve Senet kolonu dolu olmalı
@@ -91,7 +73,7 @@ class ExcelReader {
         })
         .map(row => ({
           no: row.No,
-          senet: this.normalizeTicker(String(row.Senet).trim()),
+          senet: String(row.Senet).trim(),
           lot: parseFloat(row.Lot) || 0,
           fiyat: parseFloat(row.Fiyat) || 0,
           tl: parseFloat(row.TL) || 0,
@@ -99,38 +81,7 @@ class ExcelReader {
           toplam: parseFloat(row.Toplam) || 0,
           yuzde: parseFloat(row.Yuzde) || 0,
           toplamTL: parseFloat(row.ToplamTL) || 0
-        }));
-      
-      // Boş senet değerlerini filtrele
-      const validHoldings = normalizedHoldings.filter(h => h.senet && h.senet.length > 0);
-      
-      // Aynı ticker için verileri birleştir (eski ve yeni isimler aynı ticker'a map edilirse)
-      const holdingsMap = new Map();
-      validHoldings.forEach(holding => {
-        // Senet değerini tekrar normalize et (güvenlik için)
-        const normalizedSenet = this.normalizeTicker(holding.senet);
-        if (!normalizedSenet) return; // Boşsa atla
-        
-        const existing = holdingsMap.get(normalizedSenet);
-        if (existing) {
-          // Aynı ticker için verileri birleştir (lot, tl, vb. topla)
-          existing.lot += holding.lot;
-          existing.tl += holding.tl;
-          existing.yuzdeTL += holding.yuzdeTL;
-          existing.toplam += holding.toplam;
-          existing.yuzde += holding.yuzde;
-          existing.toplamTL += holding.toplamTL;
-          // Fiyat için ağırlıklı ortalama kullan
-          if (holding.lot > 0 && existing.lot > 0) {
-            existing.fiyat = (existing.fiyat * existing.lot + holding.fiyat * holding.lot) / (existing.lot + holding.lot);
-          }
-        } else {
-          // Senet değerini normalize edilmiş haliyle kaydet
-          holdingsMap.set(normalizedSenet, { ...holding, senet: normalizedSenet });
-        }
-      });
-      
-      const holdings = Array.from(holdingsMap.values())
+        }))
         .sort((a, b) => {
           // TL değerine göre azalan sıralama (en çok tutulan üstte)
           return b.tl - a.tl;
