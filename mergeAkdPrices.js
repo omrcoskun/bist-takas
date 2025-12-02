@@ -7,11 +7,26 @@ const BIST50 = [
   "AEFES", "AKBNK", "ALARK", "ARCLK", "ASELS", "ASTOR", "BIMAS", "BRSAN",
   "CCOLA", "CIMSA", "DOAS", "DOHOL", "DSTKF", "EKGYO", "ENKAI", "EREGL",
   "FROTO", "GARAN", "GUBRF", "HALKB", "HEKTS", "ISCTR", "KCHOL", "KONTR",
-  "KOZAA", "KOZAL", "KRDMD", "KUYAS", "MAVI", "MGROS", "MIATK", "OYAKC",
+  "TRMET", "TRALT", "TRENJ", "KRDMD", "KUYAS", "MAVI", "MGROS", "MIATK", "OYAKC",
   "PETKM", "PGSUS", "SAHOL", "SASA", "SISE", "SOKM", "TAVHL", "TCELL",
   "THYAO", "TKFEN", "TOASO", "TSKB", "TTKOM", "TUPRS", "ULKER", "VAKBN",
   "VESTL", "YKBNK"
 ];
+
+// Ticker mapping
+const tickerMapping = {
+  'KOZAL': 'TRALT',
+  'KOZAA': 'TRMET',
+  'IPEKE': 'TRENJ'
+};
+
+/**
+ * Ticker ismini normalize et (eski isimleri yeni isimlere çevir)
+ */
+function normalizeTicker(ticker) {
+  const upperTicker = ticker.toUpperCase().trim();
+  return tickerMapping[upperTicker] || upperTicker;
+}
 
 /**
  * Sayıyı 2 ondalık basamağa yuvarlar
@@ -74,6 +89,9 @@ function loadPrices() {
     
     if (!symbol || !date) continue;
     
+    // Ticker ismini normalize et
+    const normalizedSymbol = normalizeTicker(symbol);
+
     // Fiyat string'ini parse et (virgülü noktaya çevir ve tırnakları temizle)
     const cleanPriceStr = priceStr.replace(/"/g, '').replace(',', '.');
     const price = parseFloat(cleanPriceStr) || 0;
@@ -85,7 +103,7 @@ function loadPrices() {
       prices[normalizedDate] = {};
     }
     
-    prices[normalizedDate][symbol.trim()] = price;
+    prices[normalizedDate][normalizedSymbol] = price;
   }
   
   return prices;

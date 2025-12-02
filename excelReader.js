@@ -8,6 +8,21 @@ const fs = require('fs');
 class ExcelReader {
   constructor(folderPath) {
     this.folderPath = folderPath;
+    
+    // Eski ticker isimlerini yeni isimlere map et
+    this.tickerMapping = {
+      'KOZAL': 'TRALT',
+      'KOZAA': 'TRMET',
+      'IPEKE': 'TRENJ'
+    };
+  }
+
+  /**
+   * Ticker ismini normalize et (eski isimleri yeni isimlere çevir)
+   */
+  normalizeTicker(ticker) {
+    const upperTicker = ticker.toUpperCase().trim();
+    return this.tickerMapping[upperTicker] || upperTicker;
   }
 
   /**
@@ -73,7 +88,7 @@ class ExcelReader {
         })
         .map(row => ({
           no: row.No,
-          senet: String(row.Senet).trim(),
+          senet: this.normalizeTicker(String(row.Senet).trim()),
           lot: parseFloat(row.Lot) || 0,
           fiyat: parseFloat(row.Fiyat) || 0,
           tl: parseFloat(row.TL) || 0,
